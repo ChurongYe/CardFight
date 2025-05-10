@@ -57,7 +57,7 @@ public class CameraShake : MonoBehaviour
 
     public void TriggerLightShake()
     {
-        TriggerShake(0.5f, 0.05f, 0.1f); // 轻微抖动
+        TriggerShake(1f, 0.05f, 0.1f); // 轻微抖动
     }
 
     public void TriggerExplosionShake()

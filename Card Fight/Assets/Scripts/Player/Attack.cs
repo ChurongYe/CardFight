@@ -31,11 +31,14 @@ public class Attack : MonoBehaviour
     [Header("Combat")]
     public Weapon weapon;
     public GameObject rangedWeaponPrefab;
-    public float attackCooldown = 0.3f;
+    public float attackCooldownMelee = 0.2f;
+    public float attackCooldownRanged = 0.3f;
+    public float reducedMoveSpeed = 2f; // 蓄力时的移动速度
+    private float originalMoveSpeed;
     private bool canAttack = true;
 
     [Header("Summon")]
-    private bool isCharging = false;
+    //private bool isCharging = false;
     private float chargeTime = 0f;
     public float maxChargeTime = 2f;
     public float minEffectiveChargeTime = 0.5f;
@@ -64,6 +67,7 @@ public class Attack : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         currentHealth = maxHealth;
         playerAnimator = GetComponent<Animator>();
+        originalMoveSpeed = walkSpeed; 
     }
 
     void Update()
@@ -77,9 +81,10 @@ public class Attack : MonoBehaviour
     {
         if (!canMove)
         {
-            rb.velocity = Vector2.zero;    
-            currentVelocity = Vector2.zero;
-            moveInput = Vector2.zero; 
+            float decelerationSpeed = 15f;
+            rb.velocity = Vector2.MoveTowards(rb.velocity, Vector2.zero, decelerationSpeed * Time.deltaTime);
+            currentVelocity = rb.velocity;
+            moveInput = Vector2.zero;
             return;
         }
         if (moveInput != Vector2.zero)
@@ -106,11 +111,38 @@ public class Attack : MonoBehaviour
         get { return canAttack; }
         set { canAttack = value; }
     }
+
+    Vector2 lastHeldDirectionWS = Vector2.zero;
+    Vector2 lastHeldDirectionAD = Vector2.zero;
     void HandleMovement()
     {
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical");
+
         if (!isDashing)
         {
-            moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
+            // 自动判断最后一个方向键
+            if (Input.GetKeyDown(KeyCode.A)) lastHeldDirectionAD = Vector2.left;
+            else if (Input.GetKeyDown(KeyCode.D)) lastHeldDirectionAD = Vector2.right;
+
+            if (Input.GetKeyDown(KeyCode.W)) lastHeldDirectionWS = Vector2.up;
+            else if (Input.GetKeyDown(KeyCode.S)) lastHeldDirectionWS = Vector2.down;
+
+            float x = 0f;
+            float y = 0f;
+
+            // 处理左右输入
+            if (Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D)) x = -1;
+            else if (Input.GetKey(KeyCode.D) && !Input.GetKey(KeyCode.A)) x = 1;
+            else if (Input.GetKey(KeyCode.A) && Input.GetKey(KeyCode.D)) x = lastHeldDirectionAD.x;
+
+            // 处理上下输入
+            if (Input.GetKey(KeyCode.W) && !Input.GetKey(KeyCode.S)) y = 1;
+            else if (Input.GetKey(KeyCode.S) && !Input.GetKey(KeyCode.W)) y = -1;
+            else if (Input.GetKey(KeyCode.W) && Input.GetKey(KeyCode.S)) y = lastHeldDirectionWS.y;
+
+            Vector2 rawInput = new Vector2(x, y);
+            moveInput = rawInput.normalized;
         }
 
         // Dash
@@ -160,22 +192,24 @@ public class Attack : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && canAttack)
         {
-            isCharging = true;
             chargeTime = 0f;
-            canMove = false;
             canAttack = false;
         }
 
-        if (Input.GetMouseButton(0) && isCharging)
+        if (Input.GetMouseButton(0))
         {
             chargeTime += Time.deltaTime;
+            if(chargeTime >= minEffectiveChargeTime)
+            {
+                // 蓄力时减速
+                walkSpeed = reducedMoveSpeed;
+            }
             chargeTime = Mathf.Min(chargeTime, maxChargeTime); // 限制最大蓄力时间
         }
 
-        // 松开左键，触发蓄力攻击
-        if (Input.GetMouseButtonUp(0) && isCharging)
+        // 松开左键，触发(蓄力)攻击
+        if (Input.GetMouseButtonUp(0))
         {
-            isCharging = false;
             float chargePercent = 0;
             bool isCharged = chargeTime >= minEffectiveChargeTime;
             if(isCharged)
@@ -187,6 +221,8 @@ public class Attack : MonoBehaviour
                 chargePercent = 0;
             }
             StartCoroutine(MeleeAttack(chargePercent));
+            // 蓄力结束后恢复原本的速度
+            walkSpeed = originalMoveSpeed;
         }
 
         if (Input.GetMouseButtonDown(1) && canAttack)
@@ -202,24 +238,22 @@ public class Attack : MonoBehaviour
 
     IEnumerator MeleeAttack(float chargePercent)
     {
+
         Debug.Log("攻击释放，蓄力百分比：" + chargePercent);
         // 使用 chargePercent 控制范围与力度
         weapon.TrySwing(chargePercent);
         // 攻击动画或冲击力特效也可根据 chargePercent 来变化
-        yield return new WaitForSeconds(attackCooldown);
-        canMove = true;
+        yield return new WaitForSeconds(attackCooldownMelee);
         canAttack = true;
     }
 
     IEnumerator RangedAttack()
     {
         canAttack = false;
-        canMove = false;
         Vector3 mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - transform.position).normalized;
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, Quaternion.LookRotation(Vector3.forward, mouseDir));
         knife.GetComponent<RangedKnife>().Launch(mouseDir,this.transform);
-        yield return new WaitForSeconds(attackCooldown);
-        canMove = true;
+        yield return new WaitForSeconds(attackCooldownRanged);
     }
 
     IEnumerator SummonAttack()
