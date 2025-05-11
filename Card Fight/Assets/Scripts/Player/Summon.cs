@@ -1,12 +1,12 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class Summon : MonoBehaviour
 {
-    private float wanderRadius = 20f;  
+    private float wanderRadius = 15f;  
     private float minDistanceFromPlayer = 3f;
-    private float detectionRange = 30f;
+    private float detectionRange = 20f;
     private float moveSpeed = 3f;
     private float moveSpeedToEnemy = 8f;
     public float attackCooldown = 1.5f;
@@ -19,6 +19,9 @@ public class Summon : MonoBehaviour
     private Transform currentTarget;
     private Rigidbody2D rb;
     private bool isIdling = false;
+    private Vector2 enemyApproachPoint;
+    private bool hasApproachPoint = false;
+
     void Start()
     {
         Player = GameObject.FindWithTag("Player");
@@ -34,6 +37,8 @@ public class Summon : MonoBehaviour
     {
         if (currentTarget == null || !IsTargetValid(currentTarget))
         {
+            currentTarget = null;
+            hasApproachPoint = false;
             SearchForEnemy();
         }
 
@@ -55,35 +60,24 @@ public class Summon : MonoBehaviour
     }
     void MoveToTargetWithStopNearEdge(Transform target)
     {
-        float stopDistance = 1f;
+        float stopThreshold = 0.3f;
+        float maxApproachRange = 5f; 
 
-        Collider2D enemyCollider = target.GetComponent<Collider2D>();
-        float enemyRadius = enemyCollider != null ? Mathf.Max(enemyCollider.bounds.extents.x, enemyCollider.bounds.extents.y) : 0.5f;
-
-        float desiredDistance = enemyRadius + stopDistance;
-        float currentDistance = Vector2.Distance(transform.position, target.position);
-
-        Vector2 targetPoint = target.position;
-
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, 0.3f);
-        foreach (var hit in hits)
+        if (!hasApproachPoint || Vector2.Distance(target.position, enemyApproachPoint) > maxApproachRange)
         {
-            if (hit.gameObject != gameObject && hit.CompareTag("Summon"))
-            {
-                float angle = Random.Range(30f, 60f) * Mathf.Deg2Rad;
-                Vector2 dir = ((Vector2)transform.position - (Vector2)target.position).normalized;
-                dir = new Vector2(
-                    dir.x * Mathf.Cos(angle) - dir.y * Mathf.Sin(angle),
-                    dir.x * Mathf.Sin(angle) + dir.y * Mathf.Cos(angle)
-                );
-                targetPoint = (Vector2)target.position + dir * desiredDistance;
-                break;
-            }
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float radius = Random.Range(1.5f, 3f);
+            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+
+            enemyApproachPoint = (Vector2)target.position + offset;
+            hasApproachPoint = true;
         }
 
-        if (currentDistance > desiredDistance)
+        float dist = Vector2.Distance(transform.position, enemyApproachPoint);
+
+        if (dist > stopThreshold)
         {
-            MoveToTarget(targetPoint, true);
+            MoveToTarget(enemyApproachPoint, true);
         }
         else
         {
@@ -102,6 +96,10 @@ public class Summon : MonoBehaviour
         {
             if (hit.CompareTag("Enemy"))
             {
+                Renderer renderer = hit.GetComponentInChildren<Renderer>();
+                if (renderer == null || !renderer.isVisible)
+                    continue; // 不可见则跳过
+
                 float dist = Vector2.Distance(transform.position, hit.transform.position);
                 if (dist < closestDistance)
                 {
@@ -111,7 +109,17 @@ public class Summon : MonoBehaviour
             }
         }
 
-        currentTarget = closestEnemy;
+        if (closestEnemy != null)
+        {
+            currentTarget = closestEnemy;
+
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float radius = Random.Range(2f, 3f);
+            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+
+            enemyApproachPoint = (Vector2)currentTarget.position + offset;
+            hasApproachPoint = true;
+        }
     }
 
     void TryAttack()
@@ -119,7 +127,12 @@ public class Summon : MonoBehaviour
         if (Time.time - lastAttackTime >= attackCooldown)
         {
             lastAttackTime = Time.time;
-            Debug.Log("�ٻ��﹥���˵��ˣ�");
+            Debug.Log("召唤物攻击了敌人！");
+
+            // 面向敌人
+            Vector2 direction = (currentTarget.position - transform.position).normalized;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle)); 
         }
     }
 
@@ -129,15 +142,17 @@ public class Summon : MonoBehaviour
         {
             if (!isIdling)
             {
-                Debug.Log("yes");
                 StartCoroutine(Idle());
             }
         }
         else
         {
-            Debug.Log("no");
-            isIdling = false; 
-            MoveToTarget(wanderTarget,false );
+            isIdling = false;
+            MoveToTarget(wanderTarget, false);
+
+            Vector2 dir = (wanderTarget - (Vector2)transform.position).normalized;
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle)); // 使召唤物朝向目标
         }
     }
 
@@ -152,15 +167,14 @@ public class Summon : MonoBehaviour
 
     void MoveToTarget(Vector2 target, bool ifEnemy)
     {
+        Vector2 dir = (target - (Vector2)transform.position).normalized;
+        rb.velocity = dir * (ifEnemy ? moveSpeedToEnemy : moveSpeed);
+
+        // 使召唤物朝向目标
         if (ifEnemy)
         {
-            Vector2 dir = (target - (Vector2)transform.position).normalized;
-            rb.velocity = dir * moveSpeedToEnemy;
-        }
-        else
-        {
-            Vector2 dir = (target - (Vector2)transform.position).normalized;
-            rb.velocity = dir * moveSpeed;
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
         }
     }
 
@@ -170,4 +184,5 @@ public class Summon : MonoBehaviour
         Vector2 randomOffset = Random.insideUnitCircle * distanceFromPlayer;
         wanderTarget = (Vector2)Player.transform.position + randomOffset;
     }
+
 }
