@@ -1,67 +1,44 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using static UnityEngine.RuleTile.TilingRuleOutput;
 
 public class Shield : MonoBehaviour
 {
-    private Vector3 shieldForward;
+    private GameObject Face;
 
-    void Start()
+    private void Start()
     {
-        shieldForward = transform.forward;  
+        Face = GameObject.FindWithTag("Face");
     }
 
-    // ÅĞ¶Ï¹¥»÷ÊÇ·ñÀ´×Ô¶ÜÅÆµÄÇ°Ãæ
-    public bool IsAttackFromFront(Vector3 attackDirection)
-    {
-        // ¼ÆËã¹¥»÷·½ÏòÓë¶ÜÅÆÕıÃæ·½ÏòµÄµã»ı
-        float dotProduct = Vector3.Dot(attackDirection.normalized, shieldForward.normalized);
-
-        // Èç¹ûµã»ı´óÓÚ0£¬ËµÃ÷¹¥»÷À´×Ô¶ÜÅÆÇ°Ãæ
-        return dotProduct > 0;
-    }
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // »ñÈ¡¹¥»÷·½Ïò£¨µĞÈËµÄ¹¥»÷µÄ³¯ÏòÏòÁ¿£©
-        Vector3 attackDirection = other.transform.position - transform.position;
+        if (other.CompareTag("Enemy"))
+        {
+            Vector2 attackDirection = other.transform.position - transform.position;
 
-        // ÅĞ¶Ï¹¥»÷ÊÇ·ñÀ´×Ô¶ÜÅÆµÄÇ°Ãæ
-        if (IsAttackFromFront(attackDirection))
-        {
-            // À¹½Ø¹¥»÷
-            Debug.Log("¹¥»÷±»¶ÜÅÆµ²×¡");
-            // ¿ÉÒÔÌí¼ÓÆäËûÀ¹½ØµÄĞĞÎª£¬ÀıÈç¼õÉË¡¢·´µ¯µÈ
-        }
-        else
-        {
-            // ¹¥»÷ÃüÖĞ±³²¿
-            Debug.Log("¹¥»÷³É¹¦£¬ÃüÖĞ±³²¿");
-            // ½øĞĞÉËº¦´¦ÀíµÈ
+            Vector2 faceDirection = Face.transform.right;
+
+            if (IsAttackBlocked(attackDirection, faceDirection))
+            {
+                Debug.Log("æ”»å‡»è¢«ç›¾ç‰ŒæŒ¡ä½ï¼");
+            }
+            else
+            {
+                Debug.Log("æ”»å‡»å‘½ä¸­èƒŒéƒ¨ï¼");
+            }
         }
     }
-}
 
-public class EnemyAttack : MonoBehaviour
-{
-    public GameObject target; // Íæ¼Ò»òÆäËûÄ¿±ê
-
-    void Attack()
+    // åˆ¤æ–­æ”»å‡»æ˜¯å¦è¢«ç›¾ç‰ŒæŒ¡ä½
+    private bool IsAttackBlocked(Vector2 attackDirection, Vector2 faceDirection)
     {
-        Vector3 attackDirection = (target.transform.position - transform.position).normalized;
+        float angle = Vector2.Angle(attackDirection, faceDirection);
 
-        // µ÷ÓÃ¶ÜÅÆµÄ IsAttackFromFront ·½·¨À´ÅĞ¶Ï¹¥»÷·½Ïò
-        Shield shield = target.GetComponentInChildren<Shield>();  // ¼ÙÉè¶ÜÅÆÊÇÍæ¼ÒµÄ×ÓÎïÌå
-        if (shield != null && shield.IsAttackFromFront(attackDirection))
-        {
-            // Èç¹û¹¥»÷À´×Ô¶ÜÅÆµÄÇ°·½£¬¿ÉÒÔ±»µ²×¡
-            Debug.Log("¹¥»÷±»µ²×¡");
-        }
-        else
-        {
-            // ·ñÔò¹¥»÷¿ÉÒÔ´Ó±³ºóÃüÖĞ
-            Debug.Log("¹¥»÷³É¹¦");
-        }
+        float tolerance = 35f;
+        return Mathf.Abs(angle ) <= tolerance;
     }
 }
 

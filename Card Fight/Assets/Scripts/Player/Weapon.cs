@@ -6,19 +6,29 @@ public class Weapon : MonoBehaviour
 {
     public Transform weaponPivot;
     public GameObject weaponSprite;
-    public GameObject Player;
+    private GameObject Player;
     private GameObject Face;
-    public float swingAngle = 180f;
-    public float swingDuration = 0.25f;
-    public float comboInterval = 0.4f;
+    private float swingAngle = 180f;
+    private float swingDuration = 0.15f;
+    private float comboInterval = 0.6f;
     // 冲击力的最小和最大值
-    public float minImpactForce = 10f;
-    public float maxImpactForce = 30f;
+    private float minImpactForce = 15f;
+    private float maxImpactForce = 45f;
 
     private bool isSwinging = false;
     private float lastClickTime = -1f;
     private bool isLeftToRight = true;
-    //public bool IsSwinging => isSwinging;
+
+    public float MinImpactForce
+    {
+        get { return minImpactForce; }
+        set { minImpactForce = value; }
+    }
+    public float MaxImpactForce
+    {
+        get { return maxImpactForce; }
+        set { maxImpactForce = value; }
+    }
     private void Start()
     {
         weaponSprite = GameObject.FindWithTag("weaponSprite");

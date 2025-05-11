@@ -21,7 +21,7 @@ public class RangedKnife : MonoBehaviour
     private bool launched = false;
     private bool isStopping = false;
     private CameraShake cameraShake;
-    private Attack attack;
+    private PlayerController playerController;
 
     public void Launch(Vector2 direction, Transform player)
     {
@@ -30,7 +30,7 @@ public class RangedKnife : MonoBehaviour
         playerTransform = player;
         launched = true;
         cameraShake = FindObjectOfType<CameraShake>();
-        attack = FindObjectOfType<Attack>();
+        playerController = FindObjectOfType<PlayerController>();
     }
 
     void Update()
@@ -81,7 +81,7 @@ public class RangedKnife : MonoBehaviour
     }
     IEnumerator StopAndShack()
     {
-        attack.CanMove = false;
+        playerController.CanMove = false;
         gameObject.GetComponent<SpriteRenderer>().enabled = false;
         // 触发屏幕抖动效果
         if (cameraShake != null)
@@ -90,8 +90,8 @@ public class RangedKnife : MonoBehaviour
         }
         // 停顿
         yield return new WaitForSeconds(0.2f);
-        attack.CanMove = true;
-        attack.CanAttack = true;
+        playerController.CanMove = true;
+        playerController.CanAttack = true;
         Destroy(gameObject);
     }
 }
