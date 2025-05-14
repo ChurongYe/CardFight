@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using static Unity.Collections.AllocatorManager;
 
@@ -7,7 +8,7 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
     private GameObject Face;
-    private float walkSpeed = 7f;
+    private float walkSpeed = 10f;
     private float acceleration = 80f;
     private float moveThreshold = 0.01f; // 静止阈值
 
@@ -29,15 +30,18 @@ public class PlayerController : MonoBehaviour
     [Header("Combat")]
     public Weapon weapon;
     public GameObject rangedWeaponPrefab;
-    private float attackCooldownMelee = 0.05f;
-    private float attackCooldownRanged = 0.3f;
+    private float attackCooldownMelee = 0.2f;
+    public float attackCooldownRanged = 0.3f;
     private float reducedMoveSpeed = 2f; 
     private float originalMoveSpeed;
     private bool canAttack = true;
     bool ifCharge = false ;
+    bool ifClick = true;
+    private bool ifAttack = false;
     private float chargeTime = 0f;
     private float maxChargeTime = 2f;
     private float minEffectiveChargeTime = 0.5f;
+
 
     [Header("Summon")]
     public GameObject summonPrefab;
@@ -115,19 +119,24 @@ public class PlayerController : MonoBehaviour
         get { return summonCooldown; }
         set { summonCooldown = value; }
     }
+    public float AttackCooldownMelee
+    {
+        get { return attackCooldownMelee; }
+        set { attackCooldownMelee = value; }
+    }
     #endregion
 
     void FixedUpdate()
     {
         if (!canMove)
         {
-            float decelerationSpeed = 30f;
+            float decelerationSpeed = 2000f;
             rb.velocity = Vector2.MoveTowards(rb.velocity, Vector2.zero, decelerationSpeed * Time.deltaTime);
             currentVelocity = rb.velocity;
             moveInput = Vector2.zero;
             return;
         }
-        if (moveInput != Vector2.zero)
+            if (moveInput != Vector2.zero)
         {
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
         }
@@ -142,10 +151,19 @@ public class PlayerController : MonoBehaviour
             rb.velocity = currentVelocity;
         }
     }
-    public bool CanMove
+    public void CantMove(float time)
     {
-        get { return canMove; }
-        set { canMove = value; }
+        canMove = false;
+        float decelerationSpeed = 2000f;
+        rb.velocity = Vector2.MoveTowards(rb.velocity, Vector2.zero, decelerationSpeed * Time.deltaTime);
+        currentVelocity = rb.velocity;
+        moveInput = Vector2.zero;
+        StartCoroutine(Stoptime(time));
+    }
+    IEnumerator Stoptime(float time)
+    {
+        yield return new WaitForSeconds(time);
+        canMove = true;
     }
     public bool CanAttack
     {
@@ -202,14 +220,12 @@ public class PlayerController : MonoBehaviour
     {
         isDashing = true;
         canDash = false;
-        isInvincible = true;
 
         rb.velocity = direction * dashSpeed;
 
         // 可加：播放特效或动画
         yield return new WaitForSeconds(dashDuration);
 
-        isInvincible = false;
         isDashing = false;
 
         yield return new WaitForSeconds(dashCooldown);
@@ -231,26 +247,33 @@ public class PlayerController : MonoBehaviour
         playerAnimator.SetFloat("MoveY", moveInput.y);
         playerAnimator.SetFloat("Speed", moveInput.magnitude);
 
-        if (Input.GetMouseButtonDown(0) && canAttack)
+        if (Input.GetMouseButtonDown(0) && ifClick)
         {
+            canMove = false;
             chargeTime = 0f;
-            canAttack = false;
+            ifAttack = true;
+            ifClick = false;
         }
 
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButton(0) && ifAttack)
         {
             chargeTime += Time.deltaTime;
             if (chargeTime >= minEffectiveChargeTime)
             {
                 // 蓄力时减速
+                canMove = true;
                 walkSpeed = reducedMoveSpeed;
             }
             chargeTime = Mathf.Min(chargeTime, maxChargeTime); // 限制最大蓄力时间
         }
 
         // 松开左键，触发(蓄力)攻击
-        if (Input.GetMouseButtonUp(0))
+        if (Input.GetMouseButtonUp(0) && canAttack)
         {
+            ifClick = true;
+            canMove = false;
+            ifAttack = false;
+            canAttack = false;
             float chargePercent = 0;
             bool isCharged = chargeTime >= minEffectiveChargeTime;
             if (isCharged)
@@ -264,9 +287,6 @@ public class PlayerController : MonoBehaviour
                 chargePercent = 0;
             }
             StartCoroutine(MeleeAttack(chargePercent));
-            ifCharge = false;
-            // 蓄力结束后恢复原本的速度
-            if (ifBlock) return; walkSpeed = originalMoveSpeed;
         }
 
         if (Input.GetMouseButtonDown(1) && canAttack)
@@ -282,17 +302,25 @@ public class PlayerController : MonoBehaviour
 
     IEnumerator MeleeAttack(float chargePercent)
     {
-
+        ifCharge = false;
+        ifAttack = false;
+        canAttack = false;
+        float stoptime = 0.2f;
         Debug.Log("攻击释放，蓄力百分比：" + chargePercent);
         // 使用 chargePercent 控制范围与力度
         weapon.TrySwing(chargePercent);
+        yield return new WaitForSeconds(stoptime);
+        canMove = true;
+        if (!ifBlock) walkSpeed = originalMoveSpeed;
         // 攻击动画或冲击力特效也可根据 chargePercent 来变化
-        yield return new WaitForSeconds(attackCooldownMelee);
+        yield return new WaitForSeconds(attackCooldownMelee );
         canAttack = true;
+        // 蓄力结束后恢复原本的速度
     }
 
     IEnumerator RangedAttack()
     {
+        CantMove(0.3f);
         canAttack = false;
         Vector3 mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - transform.position).normalized;
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, Quaternion.LookRotation(Vector3.forward, mouseDir));
@@ -303,7 +331,7 @@ public class PlayerController : MonoBehaviour
     IEnumerator SummonAttack()
     {
         canSummon = false;
-        canMove = false;
+        CantMove(0.5f);
         //召唤动画时间
         yield return new WaitForSeconds(1f);
         float radius = 3f;
@@ -311,7 +339,6 @@ public class PlayerController : MonoBehaviour
         Vector3 summonPosition = transform.position + new Vector3(offset.x, offset.y, 0);
 
         GameObject summon = Instantiate(summonPrefab, summonPosition, Quaternion.identity);
-        canMove = true;
 
         yield return new WaitForSeconds(summonDuration);
 
@@ -390,12 +417,11 @@ public class PlayerController : MonoBehaviour
     }
     IEnumerator HurtRoutine()
     {
-        canMove = false;
+        CantMove(0.5f);
         isInvincible = true;
         rb.velocity = Vector2.zero;
         // TODO: Play hurt animation + show red outline
         yield return new WaitForSeconds(0.5f); // 无敌帧时长
-        canMove = true;
         isInvincible = false;
     }
 

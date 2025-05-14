@@ -17,9 +17,15 @@ public class AllValue : MonoBehaviour
 
     [Header("MeleeAttack")]
     public float maxChargeTime = 2f;
+    public float swingDuration = 0.2f;
     // 冲击力的最小和最大值
     public float minImpactForce = 15f;
     public float maxImpactForce = 45f;
+
+    [Header("RangedAttack")]
+    public GameObject Knife;
+    public float speedFactor = 1.0f;
+    public float maxDistance = 10f;
 
     [Header("SummonAttack")]
     public float summonDuration = 7f;
@@ -29,11 +35,17 @@ public class AllValue : MonoBehaviour
 
     private void Start()
     {
+        StartCoroutine(LateStart());
+    }
+    private IEnumerator LateStart()
+    {
+        yield return null; // 等待一帧，确保其他 Start() 执行完成
+
         playerController = FindObjectOfType<PlayerController>();
         weapon = FindObjectOfType<Weapon>();
         summons = FindObjectsOfType<Summon>();
+
         SetStartValue();
-  
     }
     private void SetStartValue()
     {
@@ -48,9 +60,15 @@ public class AllValue : MonoBehaviour
         ChangePlayersummonCooldown = summonCooldown;
         ChangeWeaponminImpactForce = minImpactForce;
         ChangeWeaponmaxImpactForce = maxImpactForce;
+        ChangeWeaponswingDuration = swingDuration;
         if (summons != null)
         {
             ChangesummonattackDamage = summonattackDamage;
+        }
+        if(Knife != null)
+        {
+            ChangerangedattackspeedFactor = speedFactor;
+            ChangerangedattackmaxDistance = maxDistance;
         }
     }
     #region player
@@ -173,6 +191,19 @@ public class AllValue : MonoBehaviour
             }
         }
     }
+    public float ChangeWeaponswingDuration
+    {
+        get { return swingDuration; }
+        set
+        {
+            swingDuration = value;
+
+            if (weapon != null)
+            {
+                weapon.SwingDuration = swingDuration;
+            }
+        }
+    }
     public float ChangesummonattackDamage
     {
         get { return summonattackDamage; }
@@ -186,6 +217,32 @@ public class AllValue : MonoBehaviour
                 {
                     summon.GetComponent<Summon>().SummonattackDamage = summonattackDamage;
                 }
+            }
+        }
+    }
+    public float ChangerangedattackspeedFactor
+    {
+        get { return speedFactor; }
+        set
+        {
+            speedFactor = value;
+
+            if (Knife != null)
+            {
+                Knife.GetComponent<RangedKnife>().SpeedFactor = speedFactor;
+            }
+        }
+    }
+    public float ChangerangedattackmaxDistance
+    {
+        get { return maxDistance; }
+        set
+        {
+            maxDistance = value;
+
+            if (Knife != null)
+            {
+                Knife.GetComponent<RangedKnife>().MaxDistance = maxDistance;
             }
         }
     }

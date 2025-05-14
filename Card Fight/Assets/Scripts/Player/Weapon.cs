@@ -9,8 +9,8 @@ public class Weapon : MonoBehaviour
     private GameObject Player;
     private GameObject Face;
     private float swingAngle = 180f;
-    private float swingDuration = 0.15f;
-    private float comboInterval = 0.6f;
+    private float swingDuration = 0.2f;
+    private float comboInterval = 1f;
     // 冲击力的最小和最大值
     private float minImpactForce = 15f;
     private float maxImpactForce = 45f;
@@ -28,6 +28,13 @@ public class Weapon : MonoBehaviour
     {
         get { return maxImpactForce; }
         set { maxImpactForce = value; }
+    }
+    public float SwingDuration
+    {
+        get { return swingDuration; }
+        set { swingDuration = value;
+            Player.GetComponent<PlayerController>().AttackCooldownMelee = value;
+        }
     }
     private void Start()
     {

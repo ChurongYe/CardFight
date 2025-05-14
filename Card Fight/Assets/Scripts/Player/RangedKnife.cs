@@ -5,12 +5,17 @@ using UnityEngine.WSA;
 
 public class RangedKnife : MonoBehaviour
 {
-    public float maxSpeed = 15f;
-    public float acceleration = 60f;
-    public float deceleration = 80f;
-    public float maxDistance = 10f;
-    public float returnSpeed = 20f;
-    public float rotationSpeed = 720f; // 旋转速度
+    private float speedFactor = 1.0f;
+    private float baseMaxSpeed = 30f;
+    private float baseAcceleration = 80f;
+    private float baseDeceleration = 80f;
+
+    private float maxSpeed = 30f;
+    private float acceleration = 80f;
+    private float deceleration = 80f;
+    private float maxDistance = 10f;
+    private float returnSpeed = 60f;
+    private float rotationSpeed = 720f; // 旋转速度
     private Vector3 startPosition;
     private Vector3 targetDirection;
     private float currentSpeed = 0f;
@@ -22,7 +27,26 @@ public class RangedKnife : MonoBehaviour
     private bool isStopping = false;
     private CameraShake cameraShake;
     private PlayerController playerController;
-
+    public float SpeedFactor
+    {
+        get { return speedFactor; }
+        set { speedFactor = value;
+            }
+    }
+    public float MaxDistance
+    {
+        get { return maxDistance; }
+        set
+        {
+            maxDistance = value;
+        }
+    }
+    void ApplySpeedFactor()
+    {
+        maxSpeed = baseMaxSpeed * speedFactor;
+        acceleration = baseAcceleration * speedFactor;
+        deceleration = baseDeceleration * speedFactor;
+    }
     public void Launch(Vector2 direction, Transform player)
     {
         startPosition = transform.position;
@@ -35,29 +59,41 @@ public class RangedKnife : MonoBehaviour
 
     void Update()
     {
+        ApplySpeedFactor();
         if (!launched) return;
+
         transform.Rotate(Vector3.forward, rotationSpeed * Time.deltaTime);
+
         if (!isReturning)
         {
-            float distancePercent = traveledDistance / maxDistance;
+            float remainingDistance = maxDistance - traveledDistance;
 
-            if (distancePercent < 0.8f)
+            if (remainingDistance > 0f)
             {
-                currentSpeed = Mathf.Min(currentSpeed + acceleration * Time.deltaTime, maxSpeed);
-            }
-            else
-            {
-                currentSpeed = Mathf.Max(currentSpeed - deceleration * Time.deltaTime, 0.2f);
+                float brakingDistance = (currentSpeed * currentSpeed) / (2 * deceleration);
+
+                if (brakingDistance >= remainingDistance)
+                {
+                    // 开始减速
+                    currentSpeed = Mathf.Max(currentSpeed - deceleration * Time.deltaTime, 0f);
+                }
+                else
+                {
+                    // 继续加速
+                    currentSpeed = Mathf.Min(currentSpeed + acceleration * Time.deltaTime, maxSpeed);
+                }
+
+                Vector3 movement = targetDirection * currentSpeed * Time.deltaTime;
+                transform.position += movement;
+                traveledDistance += movement.magnitude;
             }
 
-            Vector3 movement = targetDirection * currentSpeed * Time.deltaTime;
-            transform.position += movement;
-            traveledDistance += movement.magnitude;
-
-            if (traveledDistance >= maxDistance && !isStopping)
+            // 达到最大距离并停下
+            if (remainingDistance <= 0f && !isStopping)
             {
                 isStopping = true;
-                StartCoroutine(StopAndReturn());
+                currentSpeed = 0f;
+                StartCoroutine(StopAndReturn()); // 停留再返回
             }
         }
         else if (playerTransform != null)
@@ -65,9 +101,11 @@ public class RangedKnife : MonoBehaviour
             // 返回玩家
             Vector3 returnDir = (playerTransform.position - transform.position).normalized;
             transform.position += returnDir * returnSpeed * Time.deltaTime;
-            
+
             if (Vector3.Distance(transform.position, playerTransform.position) < 0.1f)
             {
+                gameObject.GetComponent<SpriteRenderer>().enabled = false;
+                gameObject.GetComponent<Collider2D>().enabled = false;
                 StartCoroutine(StopAndShack());
             }
         }
@@ -76,12 +114,12 @@ public class RangedKnife : MonoBehaviour
     IEnumerator StopAndReturn()
     {
         // 停顿
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.2f);
         isReturning = true;
     }
     IEnumerator StopAndShack()
     {
-        playerController.CanMove = false;
+        playerController.CantMove(0.2f);
         gameObject.GetComponent<SpriteRenderer>().enabled = false;
         // 触发屏幕抖动效果
         if (cameraShake != null)
@@ -90,7 +128,6 @@ public class RangedKnife : MonoBehaviour
         }
         // 停顿
         yield return new WaitForSeconds(0.2f);
-        playerController.CanMove = true;
         playerController.CanAttack = true;
         Destroy(gameObject);
     }
