@@ -12,7 +12,7 @@ public class Shibie : MonoBehaviour
     private float knockbackDistance = 1f;
 
     private float detectionRangePlayer = 20f;
-    private float detectionRangeSummon = 1f;
+    private float detectionRangeSummon = 2f;
 
     private float lastAttackTime = -Mathf.Infinity;
     private Transform currentTarget;

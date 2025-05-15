@@ -859,7 +859,7 @@ Transform:
   m_GameObject: {fileID: 1511426400}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7.35, y: 2.763, z: 0}
+  m_LocalPosition: {x: 2.9269996, y: 2.763, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1171,7 +1171,6 @@ MonoBehaviour:
   AttackTime: 1
   attackCooldown: 2
   attackDamage: 1
-  knockbackDistance: 1
 --- !u!114 &1619305891
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1480,7 +1479,6 @@ MonoBehaviour:
   AttackTime: 1
   attackCooldown: 2
   attackDamage: 1
-  knockbackDistance: 1
 --- !u!58 &1785730476
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -1782,7 +1780,6 @@ MonoBehaviour:
   AttackTime: 1
   attackCooldown: 2
   attackDamage: 1
-  knockbackDistance: 1
 --- !u!58 &1945601889
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -4443,7 +4440,7 @@ Transform:
   m_GameObject: {fileID: 3903377412482578200}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 6.123, y: 1.6678649, z: 0}
+  m_LocalPosition: {x: 1.7, y: 1.6678649, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
