@@ -1,52 +1,66 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Shibie : MonoBehaviour
 {
+    private WeaponImpact weaponImpact;
     public float AttackTime = 1f;
+    public float attackCooldown = 1.5f;
+    public float attackDamage = 1f;
+    private float knockbackDistance = 1f;
+
     private float detectionRangePlayer = 20f;
     private float detectionRangeSummon = 1f;
-    private float moveSpeed = 6f;
-    public float attackCooldown = 1.5f;
-    private float attackDamage = 1;
-
-    private GameObject Player;
 
     private float lastAttackTime = -Mathf.Infinity;
     private Transform currentTarget;
-    private Rigidbody2D rb;
     private Vector2 enemyApproachPoint;
     private bool hasApproachPoint = false;
     private bool isAttacking = false;
+    private bool isAttacked = false;
+
+    private GameObject Player;
+    private NavMeshAgent2D agent;
+
     void Start()
     {
         Player = GameObject.FindWithTag("Player");
-        rb = GetComponent<Rigidbody2D>();
+        agent = GetComponent<NavMeshAgent2D>();
+        weaponImpact = FindObjectOfType<WeaponImpact>();
     }
+
     void Update()
     {
-        if (isAttacking) return;
+        knockbackDistance = weaponImpact.impactForce;
+        if (isAttacking || isAttacked) return;
 
         if (currentTarget == null)
         {
             SearchForPlayer();
         }
-        if (currentTarget != null && currentTarget .CompareTag("Summon"))
+
+        if (currentTarget != null)
         {
-            MoveToTargetWithStopNearEdge(currentTarget);
-        }
-        else if(currentTarget != null && currentTarget.CompareTag("Player"))
-        {
-            MoveToTargetWithStopNearEdge(currentTarget);
-            SearchForSummon();
+            if (currentTarget.CompareTag("Summon"))
+            {
+                MoveToTargetWithStopNearEdge(currentTarget);
+            }
+            else if (currentTarget.CompareTag("Player"))
+            {
+                MoveToTargetWithStopNearEdge(currentTarget);
+                SearchForSummon(); // ä¼˜å…ˆæ”»å‡»å¬å”¤ç‰©
+            }
         }
     }
+
     void MoveToTargetWithStopNearEdge(Transform target)
     {
         float stopThreshold = 0.15f;
         float maxApproachRange = 2f;
 
+        // é‡è®¾æ¥è¿‘ç‚¹
         if (!hasApproachPoint || Vector2.Distance(target.position, enemyApproachPoint) > maxApproachRange)
         {
             float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
@@ -57,17 +71,37 @@ public class Shibie : MonoBehaviour
             hasApproachPoint = true;
         }
 
+        // ç§»åŠ¨åˆ°æ¥è¿‘ç‚¹
         float dist = Vector2.Distance(transform.position, enemyApproachPoint);
-
         if (dist > stopThreshold)
         {
-            MoveToTarget(enemyApproachPoint);
+            agent.destination = enemyApproachPoint;
         }
-        else
+
+        // å¦‚æœé è¿‘ç›®æ ‡ç©å®¶åˆ™æ”»å‡»
+        if (target.CompareTag("Player") && Vector2.Distance(transform.position, target.position) < 0.8f)
         {
-            rb.velocity = Vector2.zero;
+            agent.destination = transform.position; // åœæ­¢ç§»åŠ¨
             TryAttack();
         }
+    }
+
+    void TryAttack()
+    {
+        if (Time.time - lastAttackTime >= attackCooldown)
+        {
+            lastAttackTime = Time.time;
+            StartCoroutine(AttackRoutine(AttackTime));
+        }
+    }
+
+    IEnumerator AttackRoutine(float time)
+    {
+        isAttacking = true;
+        Debug.Log($"{gameObject.name} æ­£åœ¨æ”»å‡»ç›®æ ‡ï¼");
+        // åŠ å…¥åŠ¨ç”»ã€éŸ³æ•ˆç­‰æ”»å‡»è¡¨ç°
+        yield return new WaitForSeconds(time);
+        isAttacking = false;
     }
 
     void SearchForPlayer()
@@ -82,7 +116,7 @@ public class Shibie : MonoBehaviour
             {
                 Renderer renderer = hit.GetComponentInChildren<Renderer>();
                 if (renderer == null || !renderer.isVisible)
-                    continue; // ²»¿É¼ûÔòÌø¹ı
+                    continue;
 
                 float dist = Vector2.Distance(transform.position, hit.transform.position);
                 if (dist < closestDistance)
@@ -96,15 +130,10 @@ public class Shibie : MonoBehaviour
         if (targetEnemy != null)
         {
             currentTarget = targetEnemy;
-
-            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-            float radius = Random.Range(1.5f, 2.5f);
-            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-
-            enemyApproachPoint = (Vector2)currentTarget.position + offset;
-            hasApproachPoint = true;
+            CreateApproachPoint();
         }
     }
+
     void SearchForSummon()
     {
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, detectionRangeSummon);
@@ -117,7 +146,7 @@ public class Shibie : MonoBehaviour
             {
                 Renderer renderer = hit.GetComponentInChildren<Renderer>();
                 if (renderer == null || !renderer.isVisible)
-                    continue; // ²»¿É¼ûÔòÌø¹ı
+                    continue;
 
                 float dist = Vector2.Distance(transform.position, hit.transform.position);
                 if (dist < closestDistance)
@@ -125,43 +154,67 @@ public class Shibie : MonoBehaviour
                     closestDistance = dist;
                     targetEnemy = hit.transform;
                 }
-             
             }
         }
 
         if (targetEnemy != null)
         {
             currentTarget = targetEnemy;
-
-            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-            float radius = Random.Range(1.5f, 2.5f);
-            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-
-            enemyApproachPoint = (Vector2)currentTarget.position + offset;
-            hasApproachPoint = true;
+            CreateApproachPoint();
         }
     }
 
-    void TryAttack()
+    void CreateApproachPoint()
     {
-        if (Time.time - lastAttackTime >= attackCooldown)
+        float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        float radius = Random.Range(1.5f, 2.5f);
+        Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+
+        enemyApproachPoint = (Vector2)currentTarget.position + offset;
+        hasApproachPoint = true;
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag("weaponSprite") && !isAttacked)
         {
-            lastAttackTime = Time.time;
-            StartCoroutine(AttackRoutine(AttackTime));
+            isAttacked = true;
+            Vector2 direction = (transform.position - Player.transform.position).normalized;
+            //float knockbackDistance = 1f;
+            float knockbackDuration = 0.2f;
+
+            StartCoroutine(Knockback(direction, knockbackDistance, knockbackDuration));
         }
     }
-    IEnumerator AttackRoutine(float time)
-    {
-        isAttacking = true;
-        Debug.Log($"{gameObject.name} ÕıÔÚ¹¥»÷Ä¿±ê£¡");
-        // ¼ÓÈë¶¯»­¡¢ÒôĞ§µÈ¹¥»÷±íÏÖ
-        yield return new WaitForSeconds(time);
-        isAttacking = false;
-    }
 
-    void MoveToTarget(Vector2 target)
+    IEnumerator Knockback(Vector2 direction, float distance, float duration)
     {
-        Vector2 dir = (target - (Vector2)transform.position).normalized;
-        rb.velocity = dir * moveSpeed;
+        if (agent.enabled)
+            agent.enabled = false;
+
+        Vector2 start = transform.position;
+        Vector2 target = start + direction * distance;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            transform.position = Vector2.Lerp(start, target, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        transform.position = target;
+
+        if (agent != null)
+        {
+            // å¼ºåˆ¶åŒæ­¥ agent çš„ä½ç½®
+            agent.Warp(transform.position); 
+
+            agent.enabled = true;
+
+            if (hasApproachPoint)
+                agent.destination = enemyApproachPoint;
+        }
+        isAttacked = false;
     }
 }
