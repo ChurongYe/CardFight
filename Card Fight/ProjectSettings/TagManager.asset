@@ -8,6 +8,8 @@ TagManager:
   - Enemy
   - weaponSprite
   - Summon
+  - Obstacle
+  - SummonTrigger
   layers:
   - Default
   - TransparentFX

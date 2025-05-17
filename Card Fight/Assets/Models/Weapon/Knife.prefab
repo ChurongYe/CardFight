@@ -11,11 +11,11 @@ GameObject:
   - component: {fileID: 1791948546721601746}
   - component: {fileID: 8577346786049207594}
   - component: {fileID: 7188906405618330667}
-  - component: {fileID: 2813517078337635158}
   - component: {fileID: 417679790021839208}
+  - component: {fileID: 9170366617733051175}
   m_Layer: 0
   m_Name: Knife
-  m_TagString: Untagged
+  m_TagString: weaponSprite
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -30,7 +30,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.82, y: 0.1, z: 0}
-  m_LocalScale: {x: 0.5721545, y: 1.3923262, z: 1.7837}
+  m_LocalScale: {x: 0.95059896, y: 0.29094014, z: 1.7837}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -99,20 +99,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ccf7cbfe327f0544fa9012c2f0c3f369, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  baseSpeed: 10
+  baseAcceleration: 30
   speedFactor: 10
   maxDistance: 10
---- !u!114 &2813517078337635158
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3137739768782175085}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 32ca47fc54038a34fb12688adc514357, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!61 &417679790021839208
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -158,3 +148,30 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!50 &9170366617733051175
+Rigidbody2D:
+  serializedVersion: 4
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3137739768782175085}
+  m_BodyType: 1
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDrag: 0
+  m_AngularDrag: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 4

@@ -10,30 +10,17 @@ public class Weapon : MonoBehaviour
     private GameObject Face;
     private float swingAngle = 180f;
     private float swingDuration = 0.2f;
-    private float comboInterval = 1f;
-    // 冲击力的最小和最大值
-    private float minImpactForce = 15f;
-    private float maxImpactForce = 45f;
+    private float comboInterval = 2f;
 
     private bool isSwinging = false;
     private float lastClickTime = -1f;
     private bool isLeftToRight = true;
 
-    public float MinImpactForce
-    {
-        get { return minImpactForce; }
-        set { minImpactForce = value; }
-    }
-    public float MaxImpactForce
-    {
-        get { return maxImpactForce; }
-        set { maxImpactForce = value; }
-    }
     public float SwingDuration
     {
         get { return swingDuration; }
         set { swingDuration = value;
-            Player.GetComponent<PlayerController>().AttackCooldownMelee = value;
+            Player.GetComponent<PlayerController>().AttackCooldown = value;
         }
     }
     private void Start()
@@ -45,14 +32,8 @@ public class Weapon : MonoBehaviour
         weaponPivot.transform.parent = Player.transform;
     }
 
-    public void TrySwing(float chargePercent)
+    public void TrySwing()
     {
-        float force = Mathf.Lerp(minImpactForce, maxImpactForce, chargePercent);
-        float scale = Mathf.Lerp(1f, 1.5f, (force - minImpactForce) / (maxImpactForce - minImpactForce));
-        weaponSprite.transform.localScale = new Vector3(scale, scale, 1f);
-
-        weaponSprite. GetComponent<WeaponImpact>().SetImpactForce(force);
-
         if (!isSwinging)
         {
             float timeSinceLastClick = Time.time - lastClickTime;
@@ -75,7 +56,7 @@ public class Weapon : MonoBehaviour
         float timer = 0f;
 
         Vector3 facingDir = Face.transform.right;
-        float baseAngle = Mathf.Atan2(facingDir.y, facingDir.x) * Mathf.Rad2Deg - 90f;
+        float baseAngle = Mathf.Atan2(facingDir.y, facingDir.x) * Mathf.Rad2Deg - 75f;
 
         float startZ = baseAngle + (isLeftToRight ? -swingAngle / 2 : swingAngle / 2);
         float endZ = baseAngle + (isLeftToRight ? swingAngle / 2 : -swingAngle / 2);
@@ -84,10 +65,16 @@ public class Weapon : MonoBehaviour
         {
             timer += Time.deltaTime;
             float t = Mathf.Clamp01(timer / swingDuration);
-            float angle = Mathf.Lerp(startZ, endZ, t);
+
+            float easedT = Mathf.Sin(t * Mathf.PI * 0.5f); 
+            float angle = Mathf.Lerp(startZ, endZ, easedT);
+
             weaponPivot.rotation = Quaternion.Euler(0f, 0f, angle);
             yield return null;
         }
+
+        // 挥完后保持一段时间
+        yield return new WaitForSeconds(0.1f); // 停顿时间可调
 
         isSwinging = false;
         weaponSprite.SetActive(false);

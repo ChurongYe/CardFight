@@ -7,31 +7,23 @@ public class AllValue : MonoBehaviour
 {
     private PlayerController playerController;
     private Weapon weapon;
-    private Summon[] summons;
+    private CardYe cardYe;
 
-    [Header("PlayerMovement")]
+    [Header("PlayerController")]
     public float walkSpeed = 7f;
     public float dashSpeed = 25f;
     public float dashCooldown = 1f;
     public float reducedMoveSpeed = 2f; // 蓄力时的移动速度
+    public int playerHealth = 10;
+    public bool ifClear = false; //净化
 
-    [Header("MeleeAttack")]
-    public float maxChargeTime = 2f;
+    [Header("PlayerAttack")]
+    public float impactForce = 1f;
+    public int PlayerDamage = 1;
     public float swingDuration = 0.2f;
-    // 冲击力的最小和最大值
-    public float minImpactForce = 15f;
-    public float maxImpactForce = 45f;
 
-    [Header("RangedAttack")]
-    public GameObject Knife;
-    public float speedFactor = 1.0f;
-    public float maxDistance = 10f;
-
-    [Header("SummonAttack")]
-    public float summonDuration = 7f;
-    public float summonCooldown = 15f;
-    //召唤物攻击力大小
-    public float summonattackDamage = 1;
+    [Header("PlayerSummonAttack")]
+    public float buffMultiplier = 1f;
 
     private void Start()
     {
@@ -43,8 +35,7 @@ public class AllValue : MonoBehaviour
 
         playerController = FindObjectOfType<PlayerController>();
         weapon = FindObjectOfType<Weapon>();
-        summons = FindObjectsOfType<Summon>();
-
+        cardYe = FindObjectOfType<CardYe>();
         SetStartValue();
     }
     private void SetStartValue()
@@ -54,21 +45,14 @@ public class AllValue : MonoBehaviour
         ChangePlayerdashSpeed = dashSpeed;
         ChangePlayerdashCooldown = dashCooldown;
         ChangePlayerReducedMoveSpeed = reducedMoveSpeed;
-
-        ChangePlayermaxChargeTime = maxChargeTime;
-        ChangePlayersummonDuration = summonDuration;
-        ChangePlayersummonCooldown = summonCooldown;
-        ChangeWeaponminImpactForce = minImpactForce;
-        ChangeWeaponmaxImpactForce = maxImpactForce;
+        ChangePlayerplayerHealth = playerHealth;
+        ChangePlayerifClear = ifClear;
+        //攻击频率
         ChangeWeaponswingDuration = swingDuration;
-        if (summons != null)
+        //召唤物血量倍率
+        if (cardYe != null)
         {
-            ChangesummonattackDamage = summonattackDamage;
-        }
-        if(Knife != null)
-        {
-            ChangerangedattackspeedFactor = speedFactor;
-            ChangerangedattackmaxDistance = maxDistance;
+            cardYe.MultiplyAllSummons(buffMultiplier);
         }
     }
     #region player
@@ -124,73 +108,36 @@ public class AllValue : MonoBehaviour
             }
         }
     }
+    public int ChangePlayerplayerHealth
+    {
+        get { return playerHealth; }
+        set
+        {
+            playerHealth = value;
+
+            if (playerController != null)
+            {
+                playerController.PlayerHealth = playerHealth;
+            }
+        }
+    }
+    public bool ChangePlayerifClear
+    {
+        get { return ifClear; }
+        set
+        {
+            ifClear = value;
+
+            if (playerController != null)
+            {
+                playerController.IfClear = ifClear;
+            }
+        }
+    }
     #endregion
     #region playerAttack
-    public float ChangePlayermaxChargeTime
-    {
-        get { return maxChargeTime; }
-        set
-        {
-            maxChargeTime = value;
 
-            if (playerController != null)
-            {
-                playerController.MaxChargeTime = maxChargeTime;
-            }
-        }
-    }
-    public float ChangePlayersummonDuration
-    {
-        get { return summonDuration; }
-        set
-        {
-            summonDuration = value;
 
-            if (playerController != null)
-            {
-                playerController.SummonDuration = summonDuration;
-            }
-        }
-    }
-    public float ChangePlayersummonCooldown
-    {
-        get { return summonCooldown; }
-        set
-        {
-            summonCooldown = value;
-
-            if (playerController != null)
-            {
-                playerController.SummonCooldown = summonCooldown;
-            }
-        }
-    }
-    public float ChangeWeaponminImpactForce
-    {
-        get { return minImpactForce; }
-        set
-        {
-            minImpactForce = value;
-
-            if (weapon != null)
-            {
-                weapon.MinImpactForce = minImpactForce;
-            }
-        }
-    }
-    public float ChangeWeaponmaxImpactForce
-    {
-        get { return maxImpactForce; }
-        set
-        {
-            maxImpactForce = value;
-
-            if (weapon != null)
-            {
-                weapon.MaxImpactForce = maxImpactForce;
-            }
-        }
-    }
     public float ChangeWeaponswingDuration
     {
         get { return swingDuration; }
@@ -204,45 +151,16 @@ public class AllValue : MonoBehaviour
             }
         }
     }
-    public float ChangesummonattackDamage
+    public float ChangesummonbuffMultiplier
     {
-        get { return summonattackDamage; }
+        get { return buffMultiplier; }
         set
         {
-            summonattackDamage = value;
+            buffMultiplier = value;
 
-            if (summons != null)
+            if (cardYe != null)
             {
-                foreach (var summon in summons)
-                {
-                    summon.GetComponent<Summon>().SummonattackDamage = summonattackDamage;
-                }
-            }
-        }
-    }
-    public float ChangerangedattackspeedFactor
-    {
-        get { return speedFactor; }
-        set
-        {
-            speedFactor = value;
-
-            if (Knife != null)
-            {
-                Knife.GetComponent<RangedKnife>().SpeedFactor = speedFactor;
-            }
-        }
-    }
-    public float ChangerangedattackmaxDistance
-    {
-        get { return maxDistance; }
-        set
-        {
-            maxDistance = value;
-
-            if (Knife != null)
-            {
-                Knife.GetComponent<RangedKnife>().MaxDistance = maxDistance;
+                cardYe.GetComponent<CardYe>().BuffMultiplier = buffMultiplier;
             }
         }
     }

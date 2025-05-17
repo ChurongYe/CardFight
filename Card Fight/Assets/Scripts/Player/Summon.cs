@@ -2,15 +2,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Summon : MonoBehaviour
+public class Summon : MonoBehaviour, ISummonUnit
 {
+    private CardYe manager;
+    public int baseHP = 100;
+    public int baseATK = 20;
+    public GameObject attackArea;         // 攻击区域
+    public float AttackTime = 0.5f;
+    private GameObject bar;    // 血条预制体
+    private HurtUI hurtUI;
+    private bool isInvincible = false;
+    private float invincibleDuration = 0.5f;  // 无敌时间
+    bool isDead = false;
+    private int currentHP;
+    private int currentMaxHP;
+    private int currentATK;
+
     private float wanderRadius = 15f;  
     private float minDistanceFromPlayer = 3f;
     private float detectionRange = 20f;
     private float moveSpeed = 3f;
     private float moveSpeedToEnemy = 8f;
     public float attackCooldown = 1.5f;
-    private float attackDamage = 1;
 
     private GameObject Player;
 
@@ -27,11 +40,35 @@ public class Summon : MonoBehaviour
         Player = GameObject.FindWithTag("Player");
         rb = GetComponent<Rigidbody2D>();
         PickNewWanderTarget();
+        currentMaxHP = baseHP;
+        currentHP = currentMaxHP;
+        currentATK = baseATK;
+        // 初始化血条状态
+        InitHealthBar();
+        if (attackArea != null) attackArea.SetActive(false);
     }
-    public float SummonattackDamage
+    //血量，攻击力控制
+    public void MultiplyStats(float multiplier)
     {
-        get { return attackDamage; }
-        set { attackDamage = value; }
+        currentMaxHP = Mathf.RoundToInt(baseHP * multiplier);
+        currentATK = Mathf.RoundToInt(baseATK * multiplier);
+        Debug.Log($"Shibie 当前属性：HP={currentMaxHP}, ATK={currentATK}");
+    }
+    void InitHealthBar()
+    {
+        GameObject barPrefab = Resources.Load<GameObject>("SummonHealthBar");
+        if (barPrefab != null)
+        {
+            bar = Instantiate(barPrefab, transform);
+            bar.transform.localPosition = new Vector3(0, 1.5f, 0); // 调整血条高度
+            hurtUI = bar.GetComponent<HurtUI>();
+            if (hurtUI != null)
+                hurtUI.UpdateHealthBar(currentMaxHP, currentMaxHP);
+        }
+        else
+        {
+            Debug.LogWarning("召唤物未赋值血条预制体");
+        }
     }
     void Update()
     {
@@ -68,7 +105,6 @@ public class Summon : MonoBehaviour
             float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
             float radius = Random.Range(1.5f, 3f);
             Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-
             enemyApproachPoint = (Vector2)target.position + offset;
             hasApproachPoint = true;
         }
@@ -127,13 +163,95 @@ public class Summon : MonoBehaviour
         if (Time.time - lastAttackTime >= attackCooldown)
         {
             lastAttackTime = Time.time;
-            Debug.Log("召唤物攻击了敌人！");
-
             // 面向敌人
-            Vector2 direction = (currentTarget.position - transform.position).normalized;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle)); 
+            if (currentTarget != null)
+            {
+                FaceTarget(currentTarget);
+                // 世界方向
+                Vector2 dir = ((Vector2)currentTarget.position - (Vector2)transform.position).normalized;
+                float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+                // 以父物体为中心计算新的世界位置
+                Vector3 offset = Quaternion.Euler(0, 0, angle) * Vector3.right * 1f; // 半径可调
+                Vector3 newWorldPos = transform.position + offset;
+
+                // 设置 attackArea 的世界位置与旋转，不受缩放影响
+                attackArea.transform.SetPositionAndRotation(newWorldPos, Quaternion.Euler(0, 0, angle));
+            }
+
+
+            // 启动攻击区
+            if (attackArea != null)
+                StartCoroutine(AttackRoutine(AttackTime));  // 0.5秒攻击时间举例
         }
+    }
+    void FaceTarget(Transform target)
+    {
+        if (target == null) return;
+
+        Vector3 scale = transform.localScale;
+        if (target.position.x < transform.position.x)
+            scale.x = Mathf.Abs(scale.x);  // 面朝左
+        else
+            scale.x = -Mathf.Abs(scale.x); // 面朝右（反转）
+
+        transform.localScale = scale;
+    }
+    IEnumerator AttackRoutine(float attackDuration)
+    {
+        // 攻击前摇阶段（动画播放）
+        yield return new WaitForSeconds(0.5f);
+
+        if (attackArea != null)
+            attackArea.SetActive(true);
+
+        yield return new WaitForSeconds(attackDuration);
+
+        if (attackArea != null)
+            attackArea.SetActive(false);
+    }
+    // 受到伤害
+    public void TakeDamage(int damage)
+    {
+        if (isDead || isInvincible) return;
+
+        currentHP -= damage;
+        currentHP = Mathf.Max(currentHP, 0);
+
+        if (hurtUI != null)
+            hurtUI.UpdateHealthBar(currentHP, currentMaxHP);
+
+        if (currentHP <= 0)
+        {
+            Die();
+        }
+        else
+        {
+            StartCoroutine(InvincibleCoroutine());
+        }
+    }
+    private IEnumerator InvincibleCoroutine()
+    {
+        isInvincible = true;
+        // 受伤动画
+        yield return new WaitForSeconds(invincibleDuration);
+        isInvincible = false;
+    }
+    public bool IsInvincible()
+    {
+        return isInvincible;
+    }
+
+    void Die()
+    {
+        isDead = true;
+        rb.velocity = Vector2.zero;
+
+        GetComponent<Collider2D>().enabled = false;
+        //动画
+        this.enabled = false;
+        // 延迟销毁
+        Destroy(gameObject, 1.0f);
     }
 
     void Wander()
@@ -150,9 +268,7 @@ public class Summon : MonoBehaviour
             isIdling = false;
             MoveToTarget(wanderTarget, false);
 
-            Vector2 dir = (wanderTarget - (Vector2)transform.position).normalized;
-            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle)); // 使召唤物朝向目标
+            FaceTarget(currentTarget);
         }
     }
 
@@ -173,8 +289,7 @@ public class Summon : MonoBehaviour
         // 使召唤物朝向目标
         if (ifEnemy)
         {
-            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+            FaceTarget(currentTarget);
         }
     }
 
@@ -183,6 +298,18 @@ public class Summon : MonoBehaviour
         float distanceFromPlayer = Random.Range(minDistanceFromPlayer, wanderRadius);
         Vector2 randomOffset = Random.insideUnitCircle * distanceFromPlayer;
         wanderTarget = (Vector2)Player.transform.position + randomOffset;
+    }
+    public void SetManager(CardYe manager)
+    {
+        this.manager = manager; // 赋值
+    }
+
+    private void OnDestroy()
+    {
+        if (manager != null)
+        {
+            manager.RemoveSummon(this);
+        }
     }
 
 }

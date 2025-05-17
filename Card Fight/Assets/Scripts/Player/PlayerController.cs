@@ -1,22 +1,25 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UI;
 using static Unity.Collections.AllocatorManager;
 
 public class PlayerController : MonoBehaviour
 {
+    private enum AttackMode { Melee, Ranged }
+    private AttackMode currentAttackMode = AttackMode.Melee;
     [Header("Movement")]
     private GameObject Face;
     private float walkSpeed = 10f;
     private float acceleration = 80f;
-    private float moveThreshold = 0.01f; // ¾²Ö¹ãĞÖµ
+    private float moveThreshold = 0.01f; // é™æ­¢é˜ˆå€¼
 
     private float dashSpeed = 25f;
     private float dashCooldown = 1f;
     private float dashDuration = 0.2f;
 
-    private Vector2 FaceVector;//³å´ÌÃæÏò
+    private Vector2 FaceVector;//å†²åˆºé¢å‘
     private Vector3 mouseDir;
 
     private Vector2 currentVelocity;
@@ -30,37 +33,25 @@ public class PlayerController : MonoBehaviour
     [Header("Combat")]
     public Weapon weapon;
     public GameObject rangedWeaponPrefab;
-    private float attackCooldownMelee = 0.2f;
-    public float attackCooldownRanged = 0.3f;
-    private float reducedMoveSpeed = 2f; 
+    private float attackCooldown = 0.3f;
+    private float reducedMoveSpeed = 2f;
+    private bool isSlowed = false;
+    private bool ifclear = false; //å‡€åŒ–
     private float originalMoveSpeed;
     private bool canAttack = true;
-    bool ifCharge = false ;
-    bool ifClick = true;
-    private bool ifAttack = false;
-    private float chargeTime = 0f;
-    private float maxChargeTime = 2f;
-    private float minEffectiveChargeTime = 0.5f;
-
-
-    [Header("Summon")]
-    public GameObject summonPrefab;
-    private float summonDuration = 7f;
-    private float summonCooldown = 15f;
-    private bool canSummon = true;
-
-    [Header("Block")]
-    public GameObject shield;
-    bool ifBlock = false;
-
-    [Header("Targeting")]
     private Transform currentTarget;
-    private bool isTargetLocked;
+    private bool Attacking = false;
+    private bool wasMovingLastFrame = false;
+    private bool shouldRefreshTarget = false;
 
     [Header("Health")]
-    public int maxHealth = 100;
+    private int playerHealth = 10;
     private int currentHealth;
     private bool isInvincible;
+
+    [Header("UI")]
+    public Slider healthSlider;
+    public Slider dashSlider;
 
     [Header("Animator")]
     private Animator playerAnimator;
@@ -68,19 +59,35 @@ public class PlayerController : MonoBehaviour
     {
         Face = GameObject.FindWithTag("Face");
         rb = GetComponent<Rigidbody2D>();
-        currentHealth = maxHealth;
+        currentHealth = playerHealth;
         playerAnimator = GetComponent<Animator>();
         originalMoveSpeed = walkSpeed;
+
+        if (healthSlider != null)
+        {
+            healthSlider.maxValue = playerHealth;
+            healthSlider.value = currentHealth;
+        }
+        if (dashSlider != null)
+        {
+            dashSlider.maxValue = dashCooldown;
+            dashSlider.value = dashCooldown;
+        }
     }
 
     void Update()
     {
-        if (canMove) HandleMovement();
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            currentAttackMode = currentAttackMode == AttackMode.Melee ? AttackMode.Ranged : AttackMode.Melee;
+        }
+        if (canMove)
+        {
+            HandleMovement();
+        }
         HandleCombat();
-        HandleTargetLock();
-        HandleBlock();
     }
-    //·â×°ÊıÖµ
+    //å°è£…æ•°å€¼
     #region Move
     public float WalkSpeed
     {
@@ -102,29 +109,39 @@ public class PlayerController : MonoBehaviour
         get { return reducedMoveSpeed; }
         set { reducedMoveSpeed = value; }
     }
+    public bool IfClear
+    {
+        get { return ifclear; }
+        set { ifclear = value; }
+    }
     #endregion
     #region Attack
-    public float MaxChargeTime
+    //public float MaxChargeTime
+    //{
+    //    get { return maxChargeTime; }
+    //    set { maxChargeTime = value; }
+    //}
+    //public float SummonDuration
+    //{
+    //    get { return summonDuration; }
+    //    set { summonDuration = value; }
+    //}
+    //public float SummonCooldown
+    //{
+    //    get { return summonCooldown; }
+    //    set { summonCooldown = value; }
+    //}
+    public float AttackCooldown
     {
-        get { return maxChargeTime; }
-        set { maxChargeTime = value; }
-    }
-    public float SummonDuration
-    {
-        get { return summonDuration; }
-        set { summonDuration = value; }
-    }
-    public float SummonCooldown
-    {
-        get { return summonCooldown; }
-        set { summonCooldown = value; }
-    }
-    public float AttackCooldownMelee
-    {
-        get { return attackCooldownMelee; }
-        set { attackCooldownMelee = value; }
+        get { return attackCooldown; }
+        set { attackCooldown = value; }
     }
     #endregion
+    public int PlayerHealth
+    {
+        get { return playerHealth; }
+        set { playerHealth = value; }
+    }
 
     void FixedUpdate()
     {
@@ -136,7 +153,7 @@ public class PlayerController : MonoBehaviour
             moveInput = Vector2.zero;
             return;
         }
-            if (moveInput != Vector2.zero)
+        if (moveInput != Vector2.zero)
         {
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
         }
@@ -180,7 +197,7 @@ public class PlayerController : MonoBehaviour
 
         if (!isDashing)
         {
-            // ×Ô¶¯ÅĞ¶Ï×îºóÒ»¸ö·½Ïò¼ü
+            // è‡ªåŠ¨åˆ¤æ–­æœ€åä¸€ä¸ªæ–¹å‘é”®
             if (Input.GetKeyDown(KeyCode.A)) lastHeldDirectionAD = Vector2.left;
             else if (Input.GetKeyDown(KeyCode.D)) lastHeldDirectionAD = Vector2.right;
 
@@ -190,12 +207,12 @@ public class PlayerController : MonoBehaviour
             float x = 0f;
             float y = 0f;
 
-            // ´¦Àí×óÓÒÊäÈë
+            // å¤„ç†å·¦å³è¾“å…¥
             if (Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D)) x = -1;
             else if (Input.GetKey(KeyCode.D) && !Input.GetKey(KeyCode.A)) x = 1;
             else if (Input.GetKey(KeyCode.A) && Input.GetKey(KeyCode.D)) x = lastHeldDirectionAD.x;
 
-            // ´¦ÀíÉÏÏÂÊäÈë
+            // å¤„ç†ä¸Šä¸‹è¾“å…¥
             if (Input.GetKey(KeyCode.W) && !Input.GetKey(KeyCode.S)) y = 1;
             else if (Input.GetKey(KeyCode.S) && !Input.GetKey(KeyCode.W)) y = -1;
             else if (Input.GetKey(KeyCode.W) && Input.GetKey(KeyCode.S)) y = lastHeldDirectionWS.y;
@@ -215,177 +232,142 @@ public class PlayerController : MonoBehaviour
             FaceVector = mouseDir.normalized;
             StartCoroutine(Dash(FaceVector));
         }
+        bool isCurrentlyMoving = moveInput.magnitude > moveThreshold;
+
+        if (wasMovingLastFrame && !isCurrentlyMoving)
+        {
+            Attacking = false;
+            shouldRefreshTarget = true; //åªæœ‰è¿™æ—¶æ‰è§¦å‘ç›®æ ‡åˆ·æ–°
+        }
+        wasMovingLastFrame = isCurrentlyMoving;
     }
     IEnumerator Dash(Vector2 direction)
     {
         isDashing = true;
         canDash = false;
-
         rb.velocity = direction * dashSpeed;
 
-        // ¿É¼Ó£º²¥·ÅÌØĞ§»ò¶¯»­
-        yield return new WaitForSeconds(dashDuration);
+        if (dashSlider != null)
+            dashSlider.value = 0;
 
+        // å¯åŠ ï¼šæ’­æ”¾ç‰¹æ•ˆæˆ–åŠ¨ç”»
+        yield return new WaitForSeconds(dashDuration);
         isDashing = false;
 
-        yield return new WaitForSeconds(dashCooldown);
+        float cooldownElapsed = 0f;
+        while (cooldownElapsed < dashCooldown)
+        {
+            cooldownElapsed += Time.deltaTime;
+            if (dashSlider != null)
+                dashSlider.value = cooldownElapsed;
+            yield return null;
+        }
         canDash = true;
     }
+    public void ApplySlow(float slowDuration) //å‡é€Ÿæ•ˆæœ
+    {
+        if (isSlowed || ifclear) return;
+        StartCoroutine(SlowCoroutine(slowDuration));
+    }
 
+    IEnumerator SlowCoroutine(float slowDuration)
+    {
+        isSlowed = true;
+        walkSpeed = reducedMoveSpeed;
+
+        yield return new WaitForSeconds(slowDuration);
+
+        walkSpeed = originalMoveSpeed;
+        isSlowed = false;
+    }
     void HandleCombat()
     {
-        mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - Face.transform.position);
-        mouseDir.z = 0;
-        if (!isTargetLocked)
+        if (!Attacking)
+        {
+            mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - Face.transform.position);
+            mouseDir.z = 0;
             Face.transform.right = mouseDir;
-        else if (currentTarget)
-            Face.transform.right = (currentTarget.position - Face.transform.position);
-
-
-        // ¶¯»­²ÎÊı
-        playerAnimator.SetFloat("MoveX", moveInput.x);
-        playerAnimator.SetFloat("MoveY", moveInput.y);
-        playerAnimator.SetFloat("Speed", moveInput.magnitude);
-
-        if (Input.GetMouseButtonDown(0) && ifClick)
-        {
-            canMove = false;
-            chargeTime = 0f;
-            ifAttack = true;
-            ifClick = false;
+            // åŠ¨ç”»å‚æ•°
+            playerAnimator.SetFloat("MoveX", moveInput.x);
+            playerAnimator.SetFloat("MoveY", moveInput.y);
+            playerAnimator.SetFloat("Speed", moveInput.magnitude);
         }
-
-        if (Input.GetMouseButton(0) && ifAttack)
+        else
         {
-            chargeTime += Time.deltaTime;
-            if (chargeTime >= minEffectiveChargeTime)
+
+        }
+        if (shouldRefreshTarget || currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
+        {
+            GameObject newTarget = FindNearestEnemy();
+            if (newTarget != null)
             {
-                // ĞîÁ¦Ê±¼õËÙ
-                canMove = true;
-                walkSpeed = reducedMoveSpeed;
+                currentTarget = newTarget.transform;
             }
-            chargeTime = Mathf.Min(chargeTime, maxChargeTime); // ÏŞÖÆ×î´óĞîÁ¦Ê±¼ä
-        }
 
-        // ËÉ¿ª×ó¼ü£¬´¥·¢(ĞîÁ¦)¹¥»÷
-        if (Input.GetMouseButtonUp(0) && canAttack)
+            shouldRefreshTarget = false;
+        }
+        if (canAttack && moveInput.magnitude < moveThreshold)
         {
-            ifClick = true;
-            canMove = false;
-            ifAttack = false;
-            canAttack = false;
-            float chargePercent = 0;
-            bool isCharged = chargeTime >= minEffectiveChargeTime;
-            if (isCharged)
+            // å¦‚æœæ²¡æœ‰ç›®æ ‡æˆ–ç›®æ ‡å·²æ­»äº¡ï¼Œåˆ™å¯»æ‰¾æ–°ç›®æ ‡
+            if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
             {
-                ifCharge = true;
-                chargePercent = chargeTime / maxChargeTime;
-            }
-            else
-            {
-                ifCharge = false;
-                chargePercent = 0;
-            }
-            StartCoroutine(MeleeAttack(chargePercent));
-        }
-
-        if (Input.GetMouseButtonDown(1) && canAttack)
-        {
-            StartCoroutine(RangedAttack());
-        }
-
-        if (Input.GetKeyDown(KeyCode.Q) && canSummon)
-        {
-            StartCoroutine(SummonAttack());
-        }
-    }
-
-    IEnumerator MeleeAttack(float chargePercent)
-    {
-        ifCharge = false;
-        ifAttack = false;
-        canAttack = false;
-        float stoptime = 0.2f;
-        Debug.Log("¹¥»÷ÊÍ·Å£¬ĞîÁ¦°Ù·Ö±È£º" + chargePercent);
-        // Ê¹ÓÃ chargePercent ¿ØÖÆ·¶Î§ÓëÁ¦¶È
-        weapon.TrySwing(chargePercent);
-        yield return new WaitForSeconds(stoptime);
-        canMove = true;
-        if (!ifBlock) walkSpeed = originalMoveSpeed;
-        // ¹¥»÷¶¯»­»ò³å»÷Á¦ÌØĞ§Ò²¿É¸ù¾İ chargePercent À´±ä»¯
-        yield return new WaitForSeconds(attackCooldownMelee );
-        canAttack = true;
-        // ĞîÁ¦½áÊøºó»Ö¸´Ô­±¾µÄËÙ¶È
-    }
-
-    IEnumerator RangedAttack()
-    {
-        CantMove(0.3f);
-        canAttack = false;
-        Vector3 mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - transform.position).normalized;
-        GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, Quaternion.LookRotation(Vector3.forward, mouseDir));
-        knife.GetComponent<RangedKnife>().Launch(mouseDir, this.transform);
-        yield return new WaitForSeconds(attackCooldownRanged);
-    }
-
-    IEnumerator SummonAttack()
-    {
-        canSummon = false;
-        CantMove(0.5f);
-        //ÕÙ»½¶¯»­Ê±¼ä
-        yield return new WaitForSeconds(1f);
-        float radius = 3f;
-        Vector2 offset = Random.insideUnitCircle.normalized * radius;
-        Vector3 summonPosition = transform.position + new Vector3(offset.x, offset.y, 0);
-
-        GameObject summon = Instantiate(summonPrefab, summonPosition, Quaternion.identity);
-
-        yield return new WaitForSeconds(summonDuration);
-
-        Destroy(summon);
-
-        yield return new WaitForSeconds(summonCooldown - summonDuration);
-
-        canSummon = true;
-    }
-
-    void HandleBlock()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            ifBlock = true;
-            shield.SetActive(true);
-            walkSpeed = reducedMoveSpeed;
-        }
-        if (Input.GetKeyUp(KeyCode.Space))
-        {
-            ifBlock = false;
-            shield.SetActive(false);
-            if (ifCharge) return; walkSpeed = originalMoveSpeed;
-        }
-    }
-
-    void HandleTargetLock()
-    {
-        if (Input.GetKeyDown(KeyCode.F))
-        {
-            if (isTargetLocked)
-            {
-                currentTarget = null;
-                isTargetLocked = false;
-            }
-            else
-            {
-                GameObject nearest = FindNearestEnemy();
-                if (nearest)
+                GameObject newTarget = FindNearestEnemy();
+                if (newTarget != null)
                 {
-                    currentTarget = nearest.transform;
-                    isTargetLocked = true;
+                    currentTarget = newTarget.transform;
+                }
+            }
+
+            if (currentTarget != null)
+            {
+                float distance = Vector2.Distance(transform.position, currentTarget.position);
+                float attackRange = currentAttackMode == AttackMode.Melee ? 4f : 100f;
+
+                if (distance <= attackRange)
+                {
+                    Face.transform.right = (currentTarget.position - Face.transform.position);
+
+                    if (currentAttackMode == AttackMode.Melee)
+                    {
+                        StartCoroutine(MeleeAttack());
+                    }
+                    else
+                    {
+                        StartCoroutine(RangedAttack());
+                    }
                 }
             }
         }
     }
+    IEnumerator MeleeAttack()
+    {
+        Attacking = true;
+        canAttack = false;
+        if (currentTarget == null) yield break;
 
+        weapon.TrySwing(); // è¿‘æˆ˜æ”»å‡»é€»è¾‘
+        yield return new WaitForSeconds(attackCooldown);
+        canAttack = true;
+    }
+
+    IEnumerator RangedAttack()
+    {
+        Attacking = true;
+        canAttack = false;
+
+        if (currentTarget == null) yield break;
+
+        Vector2 dirToTarget = (currentTarget.position - transform.position).normalized;
+
+        float angle = Mathf.Atan2(dirToTarget.y, dirToTarget.x) * Mathf.Rad2Deg;
+        Quaternion rotation = Quaternion.Euler(0, 0, angle);
+
+        GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
+        knife.GetComponent<RangedKnife>().Launch(dirToTarget);
+
+        yield return new WaitForSeconds(attackCooldown + 0.4f);
+        canAttack = true;
+    }
     GameObject FindNearestEnemy()
     {
         GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
@@ -408,8 +390,11 @@ public class PlayerController : MonoBehaviour
         if (isInvincible) return;
 
         currentHealth -= amount;
+        if (healthSlider != null)
+            healthSlider.value = currentHealth;
+
         StartCoroutine(HurtRoutine());
-        if (currentHealth <= 0) Die();
+        if (currentHealth <= 0) StartCoroutine(Die());
     }
     public bool IsInvincible()
     {
@@ -420,16 +405,15 @@ public class PlayerController : MonoBehaviour
         CantMove(0.5f);
         isInvincible = true;
         rb.velocity = Vector2.zero;
-        // TODO: Play hurt animation + show red outline
-        yield return new WaitForSeconds(0.5f); // ÎŞµĞÖ¡Ê±³¤
+        // å—ä¼¤åŠ¨ç”»
+        yield return new WaitForSeconds(0.5f); // æ— æ•Œå¸§æ—¶é•¿
         isInvincible = false;
     }
-
-    void Die()
+    IEnumerator Die()
     {
-        // TODO: Play death animation, disable controls, etc.
+        //æ­»äº¡åŠ¨ç”»
+        yield return new WaitForSeconds(1f);
         Debug.Log("Player Died");
-        //gameObject.SetActive(false);
     }
 
 }
