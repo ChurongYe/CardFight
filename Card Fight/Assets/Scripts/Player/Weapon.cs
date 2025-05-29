@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class Weapon : MonoBehaviour
 {
+    [SerializeField]
+    private Core.PlayerValue playerValue;
     public Transform weaponPivot;
     public GameObject weaponSprite;
     private GameObject Player;
@@ -16,15 +18,10 @@ public class Weapon : MonoBehaviour
     private float lastClickTime = -1f;
     private bool isLeftToRight = true;
 
-    public float SwingDuration
-    {
-        get { return swingDuration; }
-        set { swingDuration = value;
-            Player.GetComponent<PlayerController>().AttackCooldown = value;
-        }
-    }
     private void Start()
     {
+        playerValue = FindObjectOfType<Core.PlayerValue>();
+        playerValue.OnAttackSpeedChanged += speed => swingDuration = speed;
         weaponSprite = GameObject.FindWithTag("weaponSprite");
         weaponSprite.SetActive(false );
         Face = GameObject.FindWithTag("Face");

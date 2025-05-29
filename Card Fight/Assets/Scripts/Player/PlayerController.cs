@@ -7,16 +7,19 @@ using static Unity.Collections.AllocatorManager;
 
 public class PlayerController : MonoBehaviour
 {
+    [SerializeField]
+    private Core.PlayerValue playerValue;
     private enum AttackMode { Melee, Ranged }
     private AttackMode currentAttackMode = AttackMode.Melee;
     [Header("Movement")]
     private GameObject Face;
-    private float walkSpeed = 10f;
-    private float acceleration = 80f;
+
+    private float walkSpeed = 10f;//*
+    public float acceleration = 80f;
     private float moveThreshold = 0.01f; // 静止阈值
 
-    private float dashSpeed = 25f;
-    private float dashCooldown = 1f;
+    public float dashSpeed = 25f;
+    //private float dashCooldown = 1f;//*
     private float dashDuration = 0.2f;
 
     private Vector2 FaceVector;//冲刺面向
@@ -33,11 +36,12 @@ public class PlayerController : MonoBehaviour
     [Header("Combat")]
     public Weapon weapon;
     public GameObject rangedWeaponPrefab;
-    private float attackCooldown = 0.3f;
+    //private float attackCooldown = 0.3f;//*
     private float reducedMoveSpeed = 2f;
     private bool isSlowed = false;
-    private bool ifclear = false; //净化
-    private float originalMoveSpeed;
+    public float impactForce = 1f;
+    public bool ifclear = false; //净化
+
     private bool canAttack = true;
     private Transform currentTarget;
     private bool Attacking = false;
@@ -45,34 +49,25 @@ public class PlayerController : MonoBehaviour
     private bool shouldRefreshTarget = false;
 
     [Header("Health")]
-    private int playerHealth = 10;
-    private int currentHealth;
+    //private int playerHealth = 10;//*
+    //private int currentHealth; //*
     private bool isInvincible;
 
     [Header("UI")]
-    public Slider healthSlider;
-    public Slider dashSlider;
+    public Image HealthfillImage;
 
     [Header("Animator")]
     private Animator playerAnimator;
+    private bool ifAttacking = false;
+    private bool AorR = true ;
     void Start()
     {
+        playerValue = FindObjectOfType<Core.PlayerValue>();
         Face = GameObject.FindWithTag("Face");
         rb = GetComponent<Rigidbody2D>();
-        currentHealth = playerHealth;
+        playerValue.OnMoveSpeedChanged += speed => walkSpeed = speed;
         playerAnimator = GetComponent<Animator>();
-        originalMoveSpeed = walkSpeed;
 
-        if (healthSlider != null)
-        {
-            healthSlider.maxValue = playerHealth;
-            healthSlider.value = currentHealth;
-        }
-        if (dashSlider != null)
-        {
-            dashSlider.maxValue = dashCooldown;
-            dashSlider.value = dashCooldown;
-        }
     }
 
     void Update()
@@ -80,69 +75,20 @@ public class PlayerController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.X))
         {
             currentAttackMode = currentAttackMode == AttackMode.Melee ? AttackMode.Ranged : AttackMode.Melee;
+            AorR = currentAttackMode == AttackMode.Melee ? true : false;
         }
         if (canMove)
         {
             HandleMovement();
         }
         HandleCombat();
+        PlayerAnimation();
+        UpdateHealth(playerValue.currentHP, playerValue.currentMaxHP);
     }
-    //封装数值
-    #region Move
-    public float WalkSpeed
+    public void UpdateHealth(float currentHP, float maxHP)
     {
-        get { return walkSpeed; }
-        set { walkSpeed = value; }
+        HealthfillImage.fillAmount = currentHP / maxHP;
     }
-    public float DashSpeed
-    {
-        get { return dashSpeed; }
-        set { dashSpeed = value; }
-    }
-    public float DashCooldown
-    {
-        get { return dashCooldown; }
-        set { dashCooldown = value; }
-    }
-    public float ReducedMoveSpeed
-    {
-        get { return reducedMoveSpeed; }
-        set { reducedMoveSpeed = value; }
-    }
-    public bool IfClear
-    {
-        get { return ifclear; }
-        set { ifclear = value; }
-    }
-    #endregion
-    #region Attack
-    //public float MaxChargeTime
-    //{
-    //    get { return maxChargeTime; }
-    //    set { maxChargeTime = value; }
-    //}
-    //public float SummonDuration
-    //{
-    //    get { return summonDuration; }
-    //    set { summonDuration = value; }
-    //}
-    //public float SummonCooldown
-    //{
-    //    get { return summonCooldown; }
-    //    set { summonCooldown = value; }
-    //}
-    public float AttackCooldown
-    {
-        get { return attackCooldown; }
-        set { attackCooldown = value; }
-    }
-    #endregion
-    public int PlayerHealth
-    {
-        get { return playerHealth; }
-        set { playerHealth = value; }
-    }
-
     void FixedUpdate()
     {
         if (!canMove)
@@ -155,6 +101,7 @@ public class PlayerController : MonoBehaviour
         }
         if (moveInput != Vector2.zero)
         {
+            ifAttacking = false;
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
         }
         else
@@ -167,6 +114,20 @@ public class PlayerController : MonoBehaviour
             //rb.velocity = moveInput * walkSpeed;
             rb.velocity = currentVelocity;
         }
+    }
+    void PlayerAnimation()
+    {
+        if (playerAnimator == null)
+        {
+            Debug.LogError("playerAnimator 是 null！");
+            return;
+        }
+        // 动画参数
+        playerAnimator.SetFloat("MoveX", moveInput.x);
+        playerAnimator.SetFloat("MoveY", moveInput.y);
+        playerAnimator.SetFloat("Speed", moveInput.magnitude);
+        playerAnimator.SetBool("Attack", ifAttacking);
+        playerAnimator.SetBool("AorR", AorR);
     }
     public void CantMove(float time)
     {
@@ -245,21 +206,17 @@ public class PlayerController : MonoBehaviour
     {
         isDashing = true;
         canDash = false;
-        rb.velocity = direction * dashSpeed;
+        rb.velocity = direction *  dashSpeed;
 
-        if (dashSlider != null)
-            dashSlider.value = 0;
 
         // 可加：播放特效或动画
         yield return new WaitForSeconds(dashDuration);
         isDashing = false;
 
         float cooldownElapsed = 0f;
-        while (cooldownElapsed < dashCooldown)
+        while (cooldownElapsed < playerValue.currentDashCooldown)
         {
             cooldownElapsed += Time.deltaTime;
-            if (dashSlider != null)
-                dashSlider.value = cooldownElapsed;
             yield return null;
         }
         canDash = true;
@@ -272,6 +229,7 @@ public class PlayerController : MonoBehaviour
 
     IEnumerator SlowCoroutine(float slowDuration)
     {
+        float originalMoveSpeed = walkSpeed;
         isSlowed = true;
         walkSpeed = reducedMoveSpeed;
 
@@ -287,14 +245,6 @@ public class PlayerController : MonoBehaviour
             mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - Face.transform.position);
             mouseDir.z = 0;
             Face.transform.right = mouseDir;
-            // 动画参数
-            playerAnimator.SetFloat("MoveX", moveInput.x);
-            playerAnimator.SetFloat("MoveY", moveInput.y);
-            playerAnimator.SetFloat("Speed", moveInput.magnitude);
-        }
-        else
-        {
-
         }
         if (shouldRefreshTarget || currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
         {
@@ -321,7 +271,7 @@ public class PlayerController : MonoBehaviour
             if (currentTarget != null)
             {
                 float distance = Vector2.Distance(transform.position, currentTarget.position);
-                float attackRange = currentAttackMode == AttackMode.Melee ? 4f : 100f;
+                float attackRange = currentAttackMode == AttackMode.Melee ? 2f : 100f;
 
                 if (distance <= attackRange)
                 {
@@ -341,17 +291,20 @@ public class PlayerController : MonoBehaviour
     }
     IEnumerator MeleeAttack()
     {
+        ifAttacking = true;
         Attacking = true;
         canAttack = false;
         if (currentTarget == null) yield break;
 
         weapon.TrySwing(); // 近战攻击逻辑
-        yield return new WaitForSeconds(attackCooldown);
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed);
         canAttack = true;
+        ifAttacking = false;
     }
 
     IEnumerator RangedAttack()
     {
+        ifAttacking = true;
         Attacking = true;
         canAttack = false;
 
@@ -365,8 +318,9 @@ public class PlayerController : MonoBehaviour
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
         knife.GetComponent<RangedKnife>().Launch(dirToTarget);
 
-        yield return new WaitForSeconds(attackCooldown + 0.4f);
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2.45f);
         canAttack = true;
+        ifAttacking = false;
     }
     GameObject FindNearestEnemy()
     {
@@ -389,12 +343,10 @@ public class PlayerController : MonoBehaviour
     {
         if (isInvincible) return;
 
-        currentHealth -= amount;
-        if (healthSlider != null)
-            healthSlider.value = currentHealth;
+        playerValue.currentHP -= amount;
 
         StartCoroutine(HurtRoutine());
-        if (currentHealth <= 0) StartCoroutine(Die());
+        if (playerValue.currentHP <= 0) StartCoroutine(Die());
     }
     public bool IsInvincible()
     {

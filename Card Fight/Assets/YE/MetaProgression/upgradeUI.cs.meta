@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 04547285ffc18a6459c2f93f13082cd3
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - upgradeDatabase: {fileID: 11400000, guid: 24c978fd76beb3f4b9190b4fb89fa8c0, type: 2}
+  - upgradeItemPrefab: {fileID: 6308311298624193932, guid: b3ff5505e8770e54bbdad7e19050f868, type: 3}
+  - upgradeListParent: {instanceID: 0}
+  - totalPointsText: {instanceID: 0}
+  - closeButton: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

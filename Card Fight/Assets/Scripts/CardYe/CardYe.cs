@@ -125,19 +125,13 @@ public class CardYe : MonoBehaviour
             activeSummons.Remove(unit);
         }
     }
-
+    public float buffMultiplier;
     public void MultiplyAllSummons(float multiplier)
     {
         foreach (var unit in activeSummons)
         {
             unit.MultiplyStats(buffMultiplier);
         }
-    }
-    private float buffMultiplier;
-    public float BuffMultiplier
-    {
-        get { return buffMultiplier; }
-        set { buffMultiplier = value; }
     }
     #endregion
 }
