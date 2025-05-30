@@ -60,6 +60,8 @@ public class PlayerController : MonoBehaviour
     private Animator playerAnimator;
     private bool ifAttacking = false;
     private bool AorR = true ;
+
+    private SpriteRenderer spriteRenderer;
     void Start()
     {
         playerValue = FindObjectOfType<Core.PlayerValue>();
@@ -67,6 +69,7 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         playerValue.OnMoveSpeedChanged += speed => walkSpeed = speed;
         playerAnimator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
 
     }
 
@@ -296,6 +299,25 @@ public class PlayerController : MonoBehaviour
         canAttack = false;
         if (currentTarget == null) yield break;
 
+        Vector2 attackDir = (currentTarget.position - transform.position).normalized;
+        float moveDistance = 0.3f;
+        float moveTime = 0.1f; // 0.1秒内移动完成
+        float elapsed = 0f;
+
+        Vector2 startPos = rb.position;
+        Vector2 targetPos = startPos + attackDir * moveDistance;
+
+        // 这里用插值平滑移动角色
+        while (elapsed < moveTime)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / moveTime;
+            Vector2 newPos = Vector2.Lerp(startPos, targetPos, t);
+            rb.MovePosition(newPos);
+            yield return null;
+        }
+        rb.MovePosition(targetPos);
+
         weapon.TrySwing(); // 近战攻击逻辑
         yield return new WaitForSeconds(playerValue.currentAttackSpeed);
         canAttack = true;
@@ -354,10 +376,17 @@ public class PlayerController : MonoBehaviour
     }
     IEnumerator HurtRoutine()
     {
-        CantMove(0.5f);
+        //CantMove(0.5f);
         isInvincible = true;
         rb.velocity = Vector2.zero;
         // 受伤动画
+        Color originalColor = spriteRenderer.color;
+        // 闪红色
+        spriteRenderer.color = Color.red;
+        // 停顿一帧（或更久）
+        yield return new WaitForSeconds(0.3f);
+        // 恢复原色
+        spriteRenderer.color = originalColor;
         yield return new WaitForSeconds(0.5f); // 无敌帧时长
         isInvincible = false;
     }

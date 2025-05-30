@@ -1,4 +1,4 @@
-using Core;
+ï»¿using Core;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,9 +6,8 @@ using UnityEngine;
 public class UpgradeManager : MonoBehaviour
 {
     public static UpgradeManager Instance;
-
-    public List<UpgradeData> upgrades;
-
+    public UpgradeDatabase database;
+    public List<UpgradeData> upgrades => database.upgradeList;
     private void Awake()
     {
         if (Instance != null)
@@ -19,10 +18,16 @@ public class UpgradeManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
+        //éçº¿æ€§åŠ ç‚¹åˆå§‹åŒ–
+        foreach (var upgrade in database.upgradeList)
+        {
+            upgrade.GenerateNonLinearLevelValues();
+        }
+
         LoadUpgrades();
     }
 
-    // ¸øÍâ²¿µ÷ÓÃ£¬Éı¼¶Ä³Ïî¼Óµã
+    // ç»™å¤–éƒ¨è°ƒç”¨ï¼Œå‡çº§æŸé¡¹åŠ ç‚¹
     public bool TryUpgrade(int index)
     {
         if (index < 0 || index >= upgrades.Count)
@@ -40,7 +45,7 @@ public class UpgradeManager : MonoBehaviour
         return true;
     }
 
-    // ±£´æ¼Óµã
+    // ä¿å­˜åŠ ç‚¹
     public void SaveUpgrades()
     {
         for (int i = 0; i < upgrades.Count; i++)
@@ -50,7 +55,7 @@ public class UpgradeManager : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    // ¶ÁÈ¡¼Óµã
+    // è¯»å–åŠ ç‚¹
     public void LoadUpgrades()
     {
         for (int i = 0; i < upgrades.Count; i++)
@@ -59,13 +64,13 @@ public class UpgradeManager : MonoBehaviour
         }
     }
 
-    // Ó¦ÓÃËùÓĞÓÀ¾Ã¼Óµãµ½Íæ¼ÒÊôĞÔ
+    // åº”ç”¨æ‰€æœ‰æ°¸ä¹…åŠ ç‚¹åˆ°ç©å®¶å±æ€§
     public void ApplyAllUpgradesToPlayer(Core.PlayerValue playerValue)
     {
         playerValue.ApplyAllPermanentUpgrades(upgrades);
     }
 
-    // Õâ¸ö·½·¨¿ÉÒÔÈÃÍâ²¿µ÷ÓÃ£¬´«ÈëÍæ¼Ò¶ÔÏó
+    // è¿™ä¸ªæ–¹æ³•å¯ä»¥è®©å¤–éƒ¨è°ƒç”¨ï¼Œä¼ å…¥ç©å®¶å¯¹è±¡
     public void OnPlayerSpawned(Core.PlayerValue playerValue)
     {
         ApplyAllUpgradesToPlayer(playerValue);

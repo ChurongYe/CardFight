@@ -11,7 +11,7 @@ public class upgradeUI : MonoBehaviour
     public Button closeButton;
     public GameObject gamePanelToReturn;
 
-    private int availablePoints = 10; // 可用点数（可从存档读取）
+    public int availablePoints = 10; // 可用点数（可从存档读取）
 
     void Start()
     {

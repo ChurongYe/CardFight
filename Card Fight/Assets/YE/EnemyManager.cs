@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Core;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,6 +7,7 @@ using UnityEngine;
 [RequireComponent(typeof(NavMeshAgent2D))]
 public class EnemyManager : MonoBehaviour, IHurtable
 {
+    private PlayerValue playerValue;
     [Header("通用属性")]
     public int maxHP = 15;
     protected int currentHP;
@@ -38,6 +40,7 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
     protected virtual void Start()
     {
+        playerValue = FindObjectOfType<PlayerValue>();
         player = GameObject.FindWithTag("Player");
         agent = GetComponent<NavMeshAgent2D>();
         currentHP = maxHP;

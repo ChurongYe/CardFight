@@ -1,18 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Core
 {
-    public enum BuffType
-    {
-        Once,
-        Stage,      // 本关有效
-        Session,    // 本局游戏有效，玩家死亡后清空
-        Permanent   // 永久有效，不会自动清除
-    }
-
     public class PlayerValue : MonoBehaviour
     {
         // 基础属性（基础值）
@@ -108,9 +101,9 @@ namespace Core
         /// <param name="value">增益值</param>
         /// <param name="buffType">buff类型</param>
         /// <param name="duration">仅Once有效，持续时间</param>
-        public void IncreaseStat(string stat, float value, BuffType buffType = BuffType.Session, float duration = 0f)
+        public void IncreaseStat(string stat, float value,BuffType buffType = BuffType.Session, float duration = 0f, bool isPercentage = true)
         {
-            Buff newBuff = new Buff(stat, value, buffType, duration);
+            Buff newBuff = new Buff(stat, value, buffType, duration, isPercentage);
             Buffs.Add(newBuff);
             ApplyBuffEffect(newBuff);
 
@@ -119,42 +112,56 @@ namespace Core
                 StartCoroutine(RemoveOnceBuffAfterDuration(newBuff, duration));
             }
         }
-
         private void ApplyBuffEffect(Buff buff)
         {
-            ModifyCurrentStat(buff.stat, buff.value);
+            ModifyCurrentStat(buff.stat, buff.value, buff.isPercentage);
         }
-
         private void RemoveBuffEffect(Buff buff)
         {
-            ModifyCurrentStat(buff.stat, -buff.value);
+            ModifyCurrentStat(buff.stat, -buff.value, buff.isPercentage);
         }
 
-        private void ModifyCurrentStat(string stat, float value)
+        private void ModifyCurrentStat(string stat, float value, bool isPercentage = true)
         {
+            float finalValue = value;
+
             switch (stat)
             {
                 case "Attack":
-                    currentAttack += Mathf.RoundToInt(value);
+                    finalValue = isPercentage ? baseAttack * value : value;
+                    currentAttack += Mathf.RoundToInt(finalValue);
                     break;
                 case "Defense":
-                    currentDefense += Mathf.RoundToInt(value);
+                    finalValue = isPercentage ? baseDefense * value : value;
+                    currentDefense += Mathf.RoundToInt(finalValue);
+                    break;
+                case "currentHP":
+                    finalValue = isPercentage ? baseMaxHP * value : value;
+                    if (currentHP < currentMaxHP)
+                    {
+                        int heal = Mathf.RoundToInt(finalValue);
+                        currentHP = Mathf.Min(currentHP + heal, currentMaxHP);
+                    }
                     break;
                 case "MaxHP":
-                    currentMaxHP += Mathf.RoundToInt(value);
-                    currentHP = currentMaxHP;
+                    finalValue = isPercentage ? baseMaxHP * value : value;
+                    currentMaxHP += Mathf.RoundToInt(finalValue);
                     break;
                 case "Crit":
-                    currentCritRate += value;
+                    finalValue = isPercentage ? baseCritRate * value : value;
+                    currentCritRate += finalValue;
                     break;
                 case "MoveSpeed":
-                    currentMoveSpeed += value;
+                    finalValue = isPercentage ? baseMoveSpeed * value : value;
+                    CurrentMoveSpeed += finalValue;
                     break;
                 case "DashCooldown":
-                    currentDashCooldown += value;
+                    finalValue = isPercentage ? baseDashCooldown * value : value;
+                    currentDashCooldown += finalValue;
                     break;
                 case "AttackSpeed":
-                    currentAttackSpeed += value;
+                    finalValue = isPercentage ? baseAttackSpeed * value : value;
+                    CurrentAttackSpeed += finalValue;
                     break;
                 default:
                     Debug.LogWarning("Unknown stat: " + stat);
@@ -164,32 +171,45 @@ namespace Core
         // 应用单个永久加点到基础属性
         public void ApplyPermanentUpgrade(UpgradeData upgrade)
         {
-            float value = upgrade.GetCurrentValue();
+            // 如果当前等级没有超过已加等级，无需再加
+            if (upgrade.level <= upgrade.appliedLevel)
+                return;
 
+            // 计算从 appliedLevel+1 到当前 level 之间的所有等级加成总和
+            float bonus = 0f;
+            for (int i = upgrade.appliedLevel + 1; i <= upgrade.level; i++)
+            {
+                bonus += upgrade.GetLevelValue(i);
+            }
+
+            // 应用加成
             switch (upgrade.stat)
             {
                 case UpgradeData.StatType.Attack:
-                    baseAttack = Mathf.RoundToInt(value);
+                    baseAttack += Mathf.RoundToInt(bonus);
                     break;
                 case UpgradeData.StatType.HP:
-                    baseMaxHP = Mathf.RoundToInt(value);
+                    baseMaxHP += Mathf.RoundToInt(bonus);
                     break;
                 case UpgradeData.StatType.Defense:
-                    baseDefense = Mathf.RoundToInt(value);
+                    baseDefense += Mathf.RoundToInt(bonus);
                     break;
                 case UpgradeData.StatType.Crit:
-                    baseCritRate = value;
+                    baseCritRate += bonus;
                     break;
                 case UpgradeData.StatType.MoveSpeed:
-                    baseMoveSpeed = value;
+                    baseMoveSpeed += bonus;
                     break;
                 case UpgradeData.StatType.DashCooldown:
-                    baseDashCooldown = value;
+                    baseDashCooldown *= (1 - bonus);
                     break;
             }
+
+            // 更新已加等级，防止重复加成
+            upgrade.appliedLevel = upgrade.level;
         }
 
-        // 应用所有永久加点
+        // 一次性应用所有永久加点
         public void ApplyAllPermanentUpgrades(List<UpgradeData> upgrades)
         {
             foreach (var upgrade in upgrades)
@@ -198,11 +218,10 @@ namespace Core
                     ApplyPermanentUpgrade(upgrade);
             }
 
-            // 重新计算当前状态
-            ResetStats();
+            ResetStats(); // 更新最终属性
         }
 
-    private IEnumerator RemoveOnceBuffAfterDuration(Buff buff, float duration)
+        private IEnumerator RemoveOnceBuffAfterDuration(Buff buff, float duration)
         {
             yield return new WaitForSeconds(duration);
 
@@ -248,22 +267,32 @@ namespace Core
         // 获取当前攻击力示例
         public int GetAttack() => currentAttack;
         public float GetCritRate() => currentCritRate;
+
     }
 
     // Buff 数据类
+    public enum BuffType
+    {
+        Once,
+        Stage,      // 本关有效
+        Session,    // 本局游戏有效，玩家死亡后清空
+        Permanent   // 永久有效，不会自动清除
+    }
     public class Buff
     {
         public string stat;
         public float value;
         public BuffType buffType;
-        public float duration; // 仅 Once 类型有效
+        public float duration;
+        public bool isPercentage;
 
-        public Buff(string stat, float value, BuffType buffType, float duration = 0f)
+        public Buff(string stat, float value, BuffType buffType, float duration = 0f, bool isPercentage = true)
         {
             this.stat = stat;
             this.value = value;
             this.buffType = buffType;
             this.duration = duration;
+            this.isPercentage = isPercentage;
         }
     }
 }
