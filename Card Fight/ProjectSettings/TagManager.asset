@@ -10,6 +10,8 @@ TagManager:
   - Summon
   - Obstacle
   - SummonTrigger
+  - PlayerFire
+  - Fireball
   layers:
   - Default
   - TransparentFX

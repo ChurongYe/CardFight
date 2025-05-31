@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static Core.CardValue;
+using static PlayerController;
 
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NavMeshAgent2D))]
@@ -288,7 +290,8 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
     protected virtual void OnTriggerEnter2D(Collider2D collision)
     {
-        if (!isAttacked && (collision.CompareTag("weaponSprite") || collision.CompareTag("SummonTrigger")))
+        if (!isAttacked && (collision.CompareTag("weaponSprite") || collision.CompareTag("SummonTrigger")
+            || collision.CompareTag("PlayerFire") || collision.CompareTag("Fireball")))
         {
             //加入击退冷却判断
             if (Time.time - lastKnockbackTime < knockbackCooldown)
@@ -296,13 +299,71 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
             isAttacked = true;
             lastKnockbackTime = Time.time;
-            CombatManager.Instance.DealDamage(gameObject);
-
+            // 判断攻击类型
+            if (collision.CompareTag("weaponSprite")&& PlayerController .currentAttackMode == AttackMode.Melee)
+            {
+                if ((CardValue.attackType & AttackType.NormalMelee) != 0)
+                {
+                    CombatManager.Instance.DealDamage(gameObject);
+                }
+                if ((CardValue.attackType & AttackType.Fire) != 0)
+                {
+                    CombatManager.Instance.DealFireDamage(gameObject);
+                }
+            }
+            if (collision.CompareTag("weaponSprite") && PlayerController.currentAttackMode == AttackMode.Ranged)
+            {
+                if ((CardValue.attackType & AttackType.NormalRanged) != 0)
+                {
+                    CombatManager.Instance.DealDamage(gameObject);
+                }
+            }
+            if(collision.CompareTag("PlayerFire"))
+            {
+                if ((CardValue.attackType & AttackType.PlayerFire) != 0)
+                {
+                    CombatManager.Instance.DealPlayerFireDamage(gameObject);
+                }
+            }
+            if (collision.CompareTag("Fireball"))
+            {
+                Debug.Log("ss");
+                CombatManager.Instance.DealFireballDamage(gameObject);
+            }
+            if (collision.CompareTag("SummonTrigger"))
+            {
+                CombatManager.Instance.DealDamage(gameObject);
+            }
             Vector2 dir = (transform.position - collision.transform.position).normalized;
             float kb = collision.CompareTag("weaponSprite") ? knockbackDistance : 0f;
             float duration = 0.2f;
 
             StartCoroutine(Knockback(dir, kb, duration));
+        }
+    }
+    public void DealBurningDamage(GameObject target, int tickCount = 4, float tickInterval = 0.5f)
+    {
+        if (target.TryGetComponent<IHurtable>(out var hurtable))
+        {
+            int baseAtk = playerValue.GetAttack();
+            int burnDamage = Mathf.CeilToInt(baseAtk * 0.4f); // 初始伤害为攻击力的40%
+
+            target.GetComponent<MonoBehaviour>().StartCoroutine(ApplyBurning(hurtable, burnDamage, tickCount, tickInterval));
+        }
+    }
+
+    private IEnumerator ApplyBurning(IHurtable hurtable, int startDamage, int tickCount, float interval)
+    {
+        int damage = startDamage;
+
+        for (int i = 0; i < tickCount; i++)
+        {
+            if (hurtable == null) yield break;
+
+            hurtable.TakeDamage(damage, false); // 火焰伤害不能暴击
+            damage = Mathf.Max(1, damage - 1);  // 每跳递减，最少为1
+
+            yield return new WaitForSeconds(interval);
         }
     }
 }

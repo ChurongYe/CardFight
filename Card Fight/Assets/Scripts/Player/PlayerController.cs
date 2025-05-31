@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Core;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -9,8 +10,8 @@ public class PlayerController : MonoBehaviour
 {
     [SerializeField]
     private Core.PlayerValue playerValue;
-    private enum AttackMode { Melee, Ranged }
-    private AttackMode currentAttackMode = AttackMode.Melee;
+    public enum AttackMode { Melee, Ranged }
+    public static AttackMode currentAttackMode = AttackMode.Melee;
     [Header("Movement")]
     private GameObject Face;
 
@@ -62,6 +63,14 @@ public class PlayerController : MonoBehaviour
     private bool AorR = true ;
 
     private SpriteRenderer spriteRenderer;
+    [Header("CardFire")]
+    public GameObject PlayerFire;
+    public Camera mainCamera; // 主摄像机
+    public GameObject fireballPrefab;
+    public float fireballCooldownTime = 6f;// 每个火球间隔时间
+    private float fireballCooldownTimer = 0f;
+    private bool isCoolingDown = false;
+    public int fireballCount = 5;
     void Start()
     {
         playerValue = FindObjectOfType<Core.PlayerValue>();
@@ -86,7 +95,36 @@ public class PlayerController : MonoBehaviour
         }
         HandleCombat();
         PlayerAnimation();
-        UpdateHealth(playerValue.currentHP, playerValue.currentMaxHP);
+        UpdateHealth(PlayerValue.currentHP, PlayerValue.currentMaxHP);
+        //
+        Fire();
+    }
+    public bool Ifball = false;
+    void Fire()
+    {
+        if(ifAttacking && CardValue.PlayerFire)
+        {
+            PlayerFire.SetActive(true);
+        }
+        else
+        {
+            PlayerFire.SetActive(false );
+        }
+        if (CardValue.fireball && ifAttacking && !Ifball && !isCoolingDown)
+        {
+            TrySummonFireballs();
+        }
+        // 攻击时才推进冷却
+        if (isCoolingDown && ifAttacking)
+        {
+            fireballCooldownTimer += Time.deltaTime;
+            if (fireballCooldownTimer >= fireballCooldownTime)
+            {
+                fireballCooldownTimer = 0f;
+                isCoolingDown = false;
+                Ifball = false;
+            }
+        }
     }
     public void UpdateHealth(float currentHP, float maxHP)
     {
@@ -365,10 +403,10 @@ public class PlayerController : MonoBehaviour
     {
         if (isInvincible) return;
 
-        playerValue.currentHP -= amount;
+        PlayerValue.currentHP -= amount;
 
         StartCoroutine(HurtRoutine());
-        if (playerValue.currentHP <= 0) StartCoroutine(Die());
+        if (PlayerValue.currentHP <= 0) StartCoroutine(Die());
     }
     public bool IsInvincible()
     {
@@ -395,6 +433,64 @@ public class PlayerController : MonoBehaviour
         //死亡动画
         yield return new WaitForSeconds(1f);
         Debug.Log("Player Died");
+    }
+    ///////////////////////////Card///////////////////////////////////////////////////////
+    void TrySummonFireballs()
+    {
+        StartCoroutine(SummonFireballs());
+        Ifball = true;
+        isCoolingDown = true;
+        fireballCooldownTimer = 0f;
+        // 每次触发后，随机冷却时间（3 到 6 秒之间）
+        fireballCooldownTime = Random.Range(3f, 6f);
+    }
+    IEnumerator SummonFireballs()
+    {
+        // 找出屏幕内的敌人
+        GameObject[] allEnemies = GameObject.FindGameObjectsWithTag("Enemy");
+        List<Transform> visibleEnemies = new List<Transform>();
+
+        foreach (var enemy in allEnemies)
+        {
+            Vector3 screenPos = mainCamera.WorldToScreenPoint(enemy.transform.position);
+
+            // 判断是否在屏幕内
+            if (screenPos.z > 0 && screenPos.x >= 0 && screenPos.x <= Screen.width &&
+                screenPos.y >= 0 && screenPos.y <= Screen.height)
+            {
+                visibleEnemies.Add(enemy.transform);
+            }
+        }
+        for (int i = 0; i < fireballCount; i++)
+        {
+            Vector3 targetWorldPos;
+
+            if (visibleEnemies.Count > 0)
+            {
+                // 有敌人：随机选择一个敌人位置
+                Transform target = visibleEnemies[Random.Range(0, visibleEnemies.Count)];
+                targetWorldPos = target.position;
+            }
+            else
+            {
+                // 没有敌人：使用屏幕中心附近随机点
+                Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
+                Vector2 randomOffset = Random.insideUnitCircle * 100f;
+                Vector2 screenPos = screenCenter + randomOffset;
+                targetWorldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
+            }
+
+            targetWorldPos.z = 0; // 保持在2D层上
+
+            // 生成位置：目标点上方偏右
+            Vector3 spawnPos = targetWorldPos + new Vector3(2f, 8f, 0f);
+
+            GameObject fireball = Instantiate(fireballPrefab, spawnPos, Quaternion.identity);
+            fireball.GetComponent<Fireball>().Init(targetWorldPos);
+            yield return new WaitForSeconds(0.2f);
+        }
+        //yield return null;
+
     }
 
 }

@@ -34,7 +34,7 @@ namespace Core
             }
         }
         public float currentDashCooldown;
-        public int currentMaxHP;
+        public static int currentMaxHP;
         public int currentDefense;
         public int currentAttack;
         public float currentCritRate;
@@ -51,7 +51,7 @@ namespace Core
             }
         }
 
-        public int currentHP;
+        public static int currentHP;
         public int currentShield;
 
         // 统一管理所有 Buff
@@ -60,6 +60,14 @@ namespace Core
         private void Awake()
         {
             ResetStats();
+        }
+        private void Update()
+        {
+            if (CardValue.bloodCritEnabled)
+            {
+                hpPercent = (float)currentHP / currentMaxHP;
+                UpdateBloodCritBonus();
+            }
         }
         public void ResetValue()
         {
@@ -101,7 +109,7 @@ namespace Core
         /// <param name="value">增益值</param>
         /// <param name="buffType">buff类型</param>
         /// <param name="duration">仅Once有效，持续时间</param>
-        public void IncreaseStat(string stat, float value,BuffType buffType = BuffType.Session, float duration = 0f, bool isPercentage = true)
+        public void IncreaseStat(string stat, float value, BuffType buffType = BuffType.Session, float duration = 0f, bool isPercentage = true)
         {
             Buff newBuff = new Buff(stat, value, buffType, duration, isPercentage);
             Buffs.Add(newBuff);
@@ -163,6 +171,20 @@ namespace Core
                     finalValue = isPercentage ? baseAttackSpeed * value : value;
                     CurrentAttackSpeed += finalValue;
                     break;
+
+                case "AttackFire":
+                    // 留空
+                    break;
+                case "AttackPlayerFire":
+                    // 留空
+                    break;
+                case "Fireballs":
+                    // 留空
+                    break;
+                case "BloodCrit":
+                    // 留空
+                    break;
+
                 default:
                     Debug.LogWarning("Unknown stat: " + stat);
                     break;
@@ -219,6 +241,29 @@ namespace Core
             }
 
             ResetStats(); // 更新最终属性
+        }
+        /// <summary>
+        /// //////////血量越低，暴击率越高
+        /// </summary>
+        private float lastBloodCritBonus = 0f;
+        public float hpPercent;
+
+        public void UpdateBloodCritBonus()
+        {
+            if (!CardValue.bloodCritEnabled || CardValue.bloodCritLevel <= 0) return;
+
+            int lostPercentage = Mathf.FloorToInt((1f - hpPercent) * 10); // 每损失10%血量
+
+            // 每级暴击加成逐渐增加：如1级+3%，2级+4%，3级+5%...
+            float perSegmentBonus = 0.02f + 0.01f * CardValue.bloodCritLevel;
+            float newBonus = lostPercentage * perSegmentBonus;
+
+            float delta = newBonus - lastBloodCritBonus;
+            if (!Mathf.Approximately(delta, 0f))
+            {
+                IncreaseStat("Crit", delta, BuffType.Session , 0f, false);
+                lastBloodCritBonus = newBonus;
+            }
         }
 
         private IEnumerator RemoveOnceBuffAfterDuration(Buff buff, float duration)

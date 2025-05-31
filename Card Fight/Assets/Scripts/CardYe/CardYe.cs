@@ -30,16 +30,16 @@ public class CardYe : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.X))
-        {
-            currentSlot = currentSlot == AttackSlot.Melee ? AttackSlot.Ranged : AttackSlot.Melee;
-            Debug.Log("ÇÐ»»µ½¹¥»÷²ÛÎ»£º" + currentSlot);
-        }
+        //if (Input.GetKeyDown(KeyCode.X))
+        //{
+        //    currentSlot = currentSlot == AttackSlot.Melee ? AttackSlot.Ranged : AttackSlot.Melee;
+        //    Debug.Log("ÇÐ»»µ½¹¥»÷²ÛÎ»£º" + currentSlot);
+        //}
 
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            UseAttack();
-        }
+        //if (Input.GetKeyDown(KeyCode.Space))
+        //{
+        //    UseAttack();
+        //}
     }
     public void UseAttack()
     {

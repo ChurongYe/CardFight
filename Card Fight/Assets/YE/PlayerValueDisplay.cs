@@ -24,8 +24,8 @@ namespace Core
                 $"<b>NOW:</b>\n" +
                 $"Move Speed: {player.currentMoveSpeed}\n" +
                 $"Dash CD: {player.currentDashCooldown:F2}s\n" +
-                $"Max HP: {player.currentMaxHP}\n" +
-                $"HP: {player.currentHP}/{player.currentMaxHP}\n" +
+                $"Max HP: {PlayerValue.currentMaxHP}\n" +
+                $"HP: {PlayerValue.currentHP}/{PlayerValue.currentMaxHP}\n" +
                 $"Shield: {player.currentShield}\n" +
                 $"Defense: {player.currentDefense}\n" +
                 $"Attack: {player.currentAttack}\n" +
