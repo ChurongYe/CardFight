@@ -41,20 +41,21 @@ namespace Core
         public int currentAttack;
         public float currentCritRate;
         public float currentAttackSpeed;
-        public event Action<float> OnAttackSpeedChanged;
-        public float CurrentAttackSpeed
-        {
-            get => currentAttackSpeed;
-            set
-            {
-                if (Mathf.Approximately(currentAttackSpeed, value)) return;
-                currentAttackSpeed = value;
-                OnAttackSpeedChanged?.Invoke(currentAttackSpeed);
-            }
-        }
+        //public event Action<float> OnAttackSpeedChanged;
+        //public float CurrentAttackSpeed
+        //{
+        //    get => currentAttackSpeed;
+        //    set
+        //    {
+        //        if (Mathf.Approximately(currentAttackSpeed, value)) return;
+        //        currentAttackSpeed = value;
+        //        OnAttackSpeedChanged?.Invoke(currentAttackSpeed);
+        //    }
+        //}
 
         public static int currentHP;
         public static int currentShield;
+        private bool hasLifeStolenThisAttack = false;
         public static bool hasTriggeredLowHpShield = false;
         // 统一管理所有 Buff
         private List<Buff> Buffs = new List<Buff>();
@@ -171,7 +172,7 @@ namespace Core
                     break;
                 case "AttackSpeed":
                     finalValue = isPercentage ? baseAttackSpeed * value : value;
-                    CurrentAttackSpeed += finalValue;
+                    currentAttackSpeed += finalValue;
                     break;
 
                 case "AttackFire":
@@ -187,6 +188,9 @@ namespace Core
                     // 留空
                     break;
                 case "AttackLighting":
+                    // 留空
+                    break;
+                case "AddOneLight":
                     // 留空
                     break;
                 case "LightingPlus":
@@ -347,15 +351,21 @@ namespace Core
         /// ////////////吸血
         /// </summary>
         /// <param name="damageDealt"></param>
+
+        public void ResetLifeStealFlag()
+        {
+            hasLifeStolenThisAttack = false;
+        }
         public void TryLifeSteal(int damageDealt)
         {
+            if (hasLifeStolenThisAttack) return;
             float stealPercent = 0f;
 
             switch (CardValue.LifeStealLevel)
             {
                 case 1: stealPercent = 0.1f; break;
-                case 2: stealPercent = 0.2f; break;
-                case 3: stealPercent = 0.35f; break;
+                case 2: stealPercent = 0.15f; break;
+                case 3: stealPercent = 0.25f; break;
                 default: return; // 未开启吸血
             }
 
@@ -363,7 +373,9 @@ namespace Core
             if (currentHP < currentMaxHP)
             {
                 currentHP = Mathf.Min(currentHP + healAmount, currentMaxHP);
+                hasLifeStolenThisAttack = true;
 
+                Debug.Log($"加血: {healAmount}");
                 // 可选：回血特效、飘字提示
                 // ShowHealEffect(healAmount);
             }

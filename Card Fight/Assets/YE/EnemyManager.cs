@@ -266,6 +266,8 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         hurtUI?.ShowDamage(damage, isCrit);
         hurtUI?.UpdateHealthBar(currentHP, maxHP);
 
+        playerValue.TryLifeSteal(damage);
+
         if (currentHP <= 0 && !isDead)
         {
             StartCoroutine(Die());
@@ -310,7 +312,8 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     protected virtual void OnTriggerEnter2D(Collider2D collision)
     {
         if (!isAttacked && (collision.CompareTag("weaponSprite") || collision.CompareTag("SummonTrigger")
-            || collision.CompareTag("PlayerFire") || collision.CompareTag("Fireball") || collision.CompareTag("Lighting")))
+            || collision.CompareTag("PlayerFire") || collision.CompareTag("Fireball") || collision.CompareTag("Lighting")
+            || collision.CompareTag("OneLight")))
         {
             //加入击退冷却判断
             if (Time.time - lastKnockbackTime < knockbackCooldown)
@@ -351,6 +354,10 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
             if (collision.CompareTag("Lighting"))
             {
                 CombatManager.Instance.DealLightingDamage(gameObject);
+            }
+            if (collision.CompareTag("OneLight"))
+            {
+                CombatManager.Instance.DealOneLightDamage(gameObject);
             }
             if (collision.CompareTag("SummonTrigger"))
             {

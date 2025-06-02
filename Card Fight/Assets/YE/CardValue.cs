@@ -22,6 +22,8 @@ namespace Core
             AttackLighting = 0;
             AddLighting = false;
             AttackLight = 0;
+            OneLightLevel = 0; // 默认为0，最大3级
+            OneLight = false;
             LightingPlus = 0;
             WallDefense = 0;
             ThornsLevel = 0;
@@ -151,7 +153,20 @@ namespace Core
             if (AttackLighting < 3)
                 AttackLighting++;
         }
+        public static int OneLightLevel = 0; // 默认为0，最大3级
+        public static bool OneLight = false;
+        public void AddOneLight()//电2
+        {
+            if (OneLightLevel == 0)
+            {
+                OneLight = true;
+                playerValue.IncreaseStat("AddOneLight", 0, BuffType.Session);
+                //具体逻辑
+            }
 
+            if (OneLightLevel < 3)
+                OneLightLevel++;
+        }
         public static int AttackLight = 0;
         public void AddAttackLight() //电3
         {

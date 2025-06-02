@@ -71,12 +71,19 @@ public class PlayerController : MonoBehaviour
     public float fireballCooldownTime = 6f;// 每个火球间隔时间
     private float fireballCooldownTimer = 0f;
     private bool isCoolingDown = false;
-    public int fireballCount = 5;
+    //public int fireballCount = 5;
+
+    [Header("Light")]
+    public GameObject lightningBeamPrefab;
+    bool isLightningCoolingDown = false;
+    float lightningCooldownTimer = 0f;
+    float lightningCooldownTime = 0f;
 
     [Header("Shield")]
     private GameObject bar;    // 盾牌量预制体
     private HurtUI hurtUI;
     private int currentMaxShield;
+
     void Start()
     {
         playerValue = FindObjectOfType<Core.PlayerValue>();
@@ -85,7 +92,6 @@ public class PlayerController : MonoBehaviour
         playerValue.OnMoveSpeedChanged += speed => walkSpeed = speed;
         playerAnimator = GetComponent<Animator>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-
     }
 
     void Update()
@@ -104,6 +110,7 @@ public class PlayerController : MonoBehaviour
         UpdateHealth(PlayerValue.currentHP, playerValue.currentMaxHP);
         //
         Fire();
+        Lighting();
         if (PlayerValue.currentShield <= 0)
         {
             Destroy(bar, 0.5f);
@@ -121,12 +128,12 @@ public class PlayerController : MonoBehaviour
         {
             PlayerFire.SetActive(false );
         }
-        if (CardValue.fireball && ifAttacking && !Ifball && !isCoolingDown)
+        if (CardValue.fireball && ifAttacking && !Ifball && !isCoolingDown && currentAttackMode == AttackMode.Melee)
         {
             TrySummonFireballs();
         }
         // 攻击时才推进冷却
-        if (isCoolingDown && ifAttacking)
+        if (isCoolingDown && ifAttacking && currentAttackMode == AttackMode.Melee)
         {
             fireballCooldownTimer += Time.deltaTime;
             if (fireballCooldownTimer >= fireballCooldownTime)
@@ -134,6 +141,24 @@ public class PlayerController : MonoBehaviour
                 fireballCooldownTimer = 0f;
                 isCoolingDown = false;
                 Ifball = false;
+            }
+        }
+    }
+
+    void Lighting()
+    {
+        if (CardValue.OneLight && ifAttacking && !isLightningCoolingDown && currentAttackMode == AttackMode.Ranged)
+        {
+            TryCastLightningBeam();
+        }
+
+        if (isLightningCoolingDown && ifAttacking && currentAttackMode == AttackMode.Ranged)
+        {
+            lightningCooldownTimer += Time.deltaTime;
+            if (lightningCooldownTimer >= lightningCooldownTime)
+            {
+                lightningCooldownTimer = 0f;
+                isLightningCoolingDown = false;
             }
         }
     }
@@ -179,6 +204,7 @@ public class PlayerController : MonoBehaviour
         playerAnimator.SetFloat("MoveY", moveInput.y);
         playerAnimator.SetFloat("Speed", moveInput.magnitude);
         playerAnimator.SetBool("Attack", ifAttacking);
+        playerAnimator.SetFloat("AttackSpeedMultiplier", playerValue.currentAttackSpeed);
         playerAnimator.SetBool("AorR", AorR);
     }
     public void CantMove(float time)
@@ -388,6 +414,7 @@ public class PlayerController : MonoBehaviour
         rb.MovePosition(targetPos);
 
         weapon.TrySwing(); // 近战攻击逻辑
+        playerValue.ResetLifeStealFlag();//加血
         yield return new WaitForSeconds(playerValue.currentAttackSpeed);
         canAttack = true;
         ifAttacking = false;
@@ -408,7 +435,7 @@ public class PlayerController : MonoBehaviour
 
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
         knife.GetComponent<RangedKnife>().Launch(dirToTarget);
-
+        playerValue.ResetLifeStealFlag();//加血
         yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2.45f);
         canAttack = true;
         ifAttacking = false;
@@ -646,7 +673,7 @@ public class PlayerController : MonoBehaviour
                 visibleEnemies.Add(enemy.transform);
             }
         }
-        for (int i = 0; i < fireballCount; i++)
+        for (int i = 0; i < CardValue.fireballLevel; i++)
         {
             Vector3 targetWorldPos;
 
@@ -676,6 +703,67 @@ public class PlayerController : MonoBehaviour
         }
         //yield return null;
 
+    }
+    void TryCastLightningBeam()
+    {
+        GameObject[] allEnemies = GameObject.FindGameObjectsWithTag("Enemy");
+
+        // 左右方向分别检测
+        Vector2[] directions = { Vector2.left, Vector2.right };
+        int[] hitCounts = new int[2];
+        Vector3[] origins = new Vector3[2]; // 用于记录每个方向下，命中最多敌人的起点（只保存位置）
+
+        for (int i = 0; i < 2; i++)
+        {
+            foreach (var enemy in allEnemies)
+            {
+                Vector3 origin = enemy.transform.position;
+                RaycastHit2D[] hits = Physics2D.RaycastAll(origin, directions[i], 100f);
+                int count = 0;
+                foreach (var hit in hits)
+                {
+                    if (hit.collider != null && hit.collider.CompareTag("Enemy"))
+                    {
+                        count++;
+                    }
+                }
+
+                if (count > hitCounts[i])
+                {
+                    hitCounts[i] = count;
+                    origins[i] = origin; // 记录该起点（含Y值）
+                }
+            }
+        }
+
+        // 决定方向
+        int chosenDirIndex = hitCounts[0] > hitCounts[1] ? 0 :
+                             hitCounts[0] < hitCounts[1] ? 1 :
+                             Random.Range(0, 2); // 相等时随机
+
+        Vector2 chosenDir = directions[chosenDirIndex];
+        Vector3 bestHitOrigin = origins[chosenDirIndex];
+
+        // 获取屏幕中心 X 坐标
+        Vector3 screenCenterWorld = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
+        screenCenterWorld.z = 0f;
+
+        // 把 Y 设置为命中最多敌人的射线起点 Y
+        screenCenterWorld.y = bestHitOrigin.y;
+
+        SpawnLightningBeam(screenCenterWorld, chosenDir);
+        // 设置冷却
+        isLightningCoolingDown = true;
+        lightningCooldownTimer = 0f;
+        lightningCooldownTime = Random.Range(3f, 6f);
+    }
+
+    void SpawnLightningBeam(Vector3 spawnPos, Vector2 direction)
+    {
+        GameObject beam = Instantiate(lightningBeamPrefab, spawnPos, Quaternion.identity);
+
+        // 设置方向
+        beam.transform.right = direction.normalized;
     }
 
 }

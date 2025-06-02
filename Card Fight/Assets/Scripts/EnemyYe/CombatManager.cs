@@ -62,7 +62,7 @@ public class CombatManager : MonoBehaviour
     {
         if (target.TryGetComponent<IHurtable>(out var hurtable))
         {
-            float[] damageByLevel = { 10f, 20f, 30f }; // 1~3级对应伤害
+            float[] damageByLevel = { 20f, 25f, 30f }; // 1~3级对应伤害
             int damage = Mathf.RoundToInt(damageByLevel[Mathf.Clamp(CardValue.fireballLevel - 1, 0, 2)]);
 
             target.GetComponent<MonoBehaviour>().StartCoroutine(ApplyBurning(hurtable, damage, tickInterval));
@@ -90,7 +90,21 @@ public class CombatManager : MonoBehaviour
             }
         }
     }
+    public void DealOneLightDamage(GameObject target, float tickInterval = 0.5f)
+    {
+        if (target.TryGetComponent<IHurtable>(out var hurtable))
+        {
+            int baseDamage = playerValue.GetBaseAttack();
 
+            // 根据等级乘以倍率
+            float[] damageMultipliers = { 2f, 2.5f, 3f }; // 对应等级1~3
+            float multiplier = damageMultipliers[Mathf.Clamp(CardValue.OneLightLevel - 1, 0, 2)];
+
+            int totalDamage = Mathf.RoundToInt(baseDamage * multiplier);
+
+            hurtable.TakeDamage(totalDamage, false);
+        }
+    }
     private IEnumerator ApplyBurning(IHurtable hurtable, int startDamage, float interval)
     {
         // 每跳的百分比范围：{ min, max }

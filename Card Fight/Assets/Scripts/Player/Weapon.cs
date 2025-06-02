@@ -11,7 +11,7 @@ public class Weapon : MonoBehaviour
     private GameObject Player;
     private GameObject Face;
     private float swingAngle = 180f;
-    private float swingDuration = 0.2f;
+    public float swingDuration ;
     private float comboInterval = 2f;
 
     private bool isSwinging = false;
@@ -21,14 +21,17 @@ public class Weapon : MonoBehaviour
     private void Start()
     {
         playerValue = FindObjectOfType<Core.PlayerValue>();
-        playerValue.OnAttackSpeedChanged += speed => swingDuration = speed;
+        //playerValue.OnAttackSpeedChanged += speed => swingDuration = speed;
         weaponSprite = GameObject.FindWithTag("weaponSprite");
         weaponSprite.SetActive(false );
         Face = GameObject.FindWithTag("Face");
         Player = GameObject.FindWithTag("Player");
         weaponPivot.transform.parent = Player.transform;
     }
-
+    private void Update()
+    {
+        swingDuration = playerValue.currentAttackSpeed;
+    }
     public void TrySwing()
     {
         if (!isSwinging)
@@ -58,10 +61,10 @@ public class Weapon : MonoBehaviour
         float startZ = baseAngle + (isLeftToRight ? -swingAngle / 2 : swingAngle / 2);
         float endZ = baseAngle + (isLeftToRight ? swingAngle / 2 : -swingAngle / 2);
 
-        while (timer < swingDuration)
+        while (timer < playerValue.currentAttackSpeed)
         {
             timer += Time.deltaTime;
-            float t = Mathf.Clamp01(timer / swingDuration);
+            float t = Mathf.Clamp01(timer / playerValue.currentAttackSpeed);
 
             float easedT = Mathf.Sin(t * Mathf.PI * 0.5f); 
             float angle = Mathf.Lerp(startZ, endZ, easedT);
