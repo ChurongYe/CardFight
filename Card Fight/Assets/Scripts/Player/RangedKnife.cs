@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Core;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.WSA;
@@ -148,6 +149,9 @@ public class RangedKnife : MonoBehaviour
     private bool launched = false;
     private bool isDead = false;
 
+    [Header("Lighting")]
+    public GameObject LightingPrefab;
+
     public void SpeedFactor()
     {
         speed = baseSpeed * speedFactor;
@@ -199,6 +203,11 @@ public class RangedKnife : MonoBehaviour
             launched = false; // 停止飞行
             isDead = true;
             GetComponent<Collider2D>().enabled = false;
+            if (CardValue.AddLighting && LightingPrefab != null)
+            {
+                GameObject lightZone = Instantiate(LightingPrefab, transform.position, Quaternion.identity);
+            }
+
             StartCoroutine(Stop());
         }
     }

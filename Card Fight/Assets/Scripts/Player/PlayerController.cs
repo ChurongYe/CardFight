@@ -5,6 +5,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static Unity.Collections.AllocatorManager;
+using static Unity.VisualScripting.Member;
 
 public class PlayerController : MonoBehaviour
 {
@@ -71,6 +72,11 @@ public class PlayerController : MonoBehaviour
     private float fireballCooldownTimer = 0f;
     private bool isCoolingDown = false;
     public int fireballCount = 5;
+
+    [Header("Shield")]
+    private GameObject bar;    // 盾牌量预制体
+    private HurtUI hurtUI;
+    private int currentMaxShield;
     void Start()
     {
         playerValue = FindObjectOfType<Core.PlayerValue>();
@@ -95,14 +101,19 @@ public class PlayerController : MonoBehaviour
         }
         HandleCombat();
         PlayerAnimation();
-        UpdateHealth(PlayerValue.currentHP, PlayerValue.currentMaxHP);
+        UpdateHealth(PlayerValue.currentHP, playerValue.currentMaxHP);
         //
         Fire();
+        if (PlayerValue.currentShield <= 0)
+        {
+            Destroy(bar, 0.5f);
+            // TODO: 护盾破裂视觉效果
+        }
     }
     public bool Ifball = false;
     void Fire()
     {
-        if(ifAttacking && CardValue.PlayerFire)
+        if(ifAttacking && CardValue.PlayerFire && currentAttackMode == AttackMode.Melee)
         {
             PlayerFire.SetActive(true);
         }
@@ -287,6 +298,7 @@ public class PlayerController : MonoBehaviour
             mouseDir.z = 0;
             Face.transform.right = mouseDir;
         }
+
         if (shouldRefreshTarget || currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
         {
             GameObject newTarget = FindNearestEnemy();
@@ -294,12 +306,15 @@ public class PlayerController : MonoBehaviour
             {
                 currentTarget = newTarget.transform;
             }
-
+            else
+            {
+                currentTarget = null;
+            }
             shouldRefreshTarget = false;
         }
+
         if (canAttack && moveInput.magnitude < moveThreshold)
         {
-            // 如果没有目标或目标已死亡，则寻找新目标
             if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
             {
                 GameObject newTarget = FindNearestEnemy();
@@ -307,12 +322,28 @@ public class PlayerController : MonoBehaviour
                 {
                     currentTarget = newTarget.transform;
                 }
+                else
+                {
+                    currentTarget = null;
+                }
             }
 
             if (currentTarget != null)
             {
                 float distance = Vector2.Distance(transform.position, currentTarget.position);
                 float attackRange = currentAttackMode == AttackMode.Melee ? 2f : 100f;
+
+                // **新增射线检测，确保当前目标没被墙挡住**
+                Vector2 origin = transform.position;
+                Vector2 targetPos = currentTarget.position;
+                RaycastHit2D hit = Physics2D.Raycast(origin, targetPos - origin, distance, LayerMask.GetMask("Wall"));
+
+                if (hit.collider != null)
+                {
+                    // 当前目标被墙挡住，清空目标，下次重新找
+                    currentTarget = null;
+                    return; // 不攻击，等下一帧找目标
+                }
 
                 if (distance <= attackRange)
                 {
@@ -387,31 +418,169 @@ public class PlayerController : MonoBehaviour
         GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
         GameObject nearest = null;
         float minDist = Mathf.Infinity;
+
+        Vector2 origin = transform.position;
+
         foreach (GameObject e in enemies)
         {
-            float dist = Vector2.Distance(transform.position, e.transform.position);
+            Vector2 targetPos = e.transform.position;
+            float dist = Vector2.Distance(origin, targetPos);
+
             if (dist < minDist)
             {
-                nearest = e;
-                minDist = dist;
+                // 从玩家位置向敌人发射射线，检测墙壁阻挡
+                RaycastHit2D hit = Physics2D.Raycast(origin, targetPos - origin, dist, LayerMask.GetMask("Wall"));
+
+                if (hit.collider == null)
+                {
+                    // 没有碰到墙壁，说明视线通畅
+                    nearest = e;
+                    minDist = dist;
+                }
+                else
+                {
+                    //Debug.Log("wall");
+                }
             }
         }
+
         return nearest;
     }
 
-    public void TakeDamage(int amount)
+    public void TakeDamage(int amount, GameObject enemy)
     {
+        if (TryTriggerShield(enemy)) return; // 无敌护盾
         if (isInvincible) return;
 
-        PlayerValue.currentHP -= amount;
+        // [1] 临时护盾吸收伤害
+        if (PlayerValue.currentShield > 0)
+        {
+            int absorbed = Mathf.Min(PlayerValue.currentShield, amount);
+            PlayerValue.currentShield -= absorbed;
+            amount -= absorbed;
+
+            hurtUI?.UpdateHealthBar(PlayerValue.currentShield, currentMaxShield);//更新护盾量
+            StartCoroutine(HurtRoutineShield());
+
+            if (amount <= 0) return; // 全部伤害被护盾吸收
+        }
+
+        // [2] 预测血量是否会低于 5%，如果是，尝试触发低血护盾
+        int predictedDamage = Mathf.Max(1, amount - PlayerValue.currentDefense);
+        int predictedHP = PlayerValue.currentHP - predictedDamage;
+        float predictedPercent = (float)predictedHP / playerValue.currentMaxHP;
+
+        if (predictedPercent <= 0.05f)
+        {
+            TryTriggerLowHpShield(); // 注意此处调用在实际扣血前
+            if (PlayerValue.currentShield > 0)
+            {
+                int absorbed = Mathf.Min(PlayerValue.currentShield, predictedDamage);
+                PlayerValue.currentShield -= absorbed;
+                predictedDamage -= absorbed;
+                if (predictedDamage <= 0) return; // 护盾吸收完全部伤害后退出
+            }
+        }
+
+        // [3] 正式扣血
+        PlayerValue.currentHP -= predictedDamage;
+
+        // [4] 反弹伤害
+        if (CardValue.ThornsLevel > 0 && enemy != null)
+        {
+            float reflectPercent = 0f;
+            switch (CardValue.ThornsLevel)
+            {
+                case 1: reflectPercent = 0.2f; break;
+                case 2: reflectPercent = 0.4f; break;
+                case 3: reflectPercent = 0.6f; break;
+            }
+
+            int reflectDamage = Mathf.Max(1, Mathf.RoundToInt(predictedDamage * reflectPercent));
+
+            if (enemy.TryGetComponent<IHurtable>(out var hurtable))
+            {
+                hurtable.TakeDamage(reflectDamage, false);
+            }
+        }
 
         StartCoroutine(HurtRoutine());
-        if (PlayerValue.currentHP <= 0) StartCoroutine(Die());
+
+        if (PlayerValue.currentHP <= 0)
+            StartCoroutine(Die());
+    }
+    private void TryTriggerLowHpShield()
+    {
+        if (PlayerValue. hasTriggeredLowHpShield) return;
+        float shieldPercent = 0f;
+        switch (CardValue.TriggerLowHpShield)
+        {
+            case 1: shieldPercent = 0.3f; break;
+            case 2: shieldPercent = 0.6f; break;
+            case 3: shieldPercent = 1.0f; break;
+            default: return; // 未解锁不触发
+        }
+
+        currentMaxShield = PlayerValue.currentShield = Mathf.RoundToInt(playerValue.baseMaxHP * shieldPercent);
+        PlayerValue.hasTriggeredLowHpShield = true;
+        InitShieldBar();
+
+        // TODO: 加入护盾启动动画/音效/UI提示
+        Debug.Log($"触发低血护盾，获得 {PlayerValue.currentShield} 点护盾值");
+    }
+    void InitShieldBar()
+    {
+        GameObject barPrefab = Resources.Load<GameObject>("ShieldBar");
+        if (barPrefab != null)
+        {
+            bar = Instantiate(barPrefab, transform);
+            bar.transform.localPosition = new Vector3(0, 1.5f, 0); // 调整血条高度
+            hurtUI = bar.GetComponent<HurtUI>();
+            if (hurtUI != null)
+                hurtUI.UpdateHealthBar(PlayerValue.currentShield, currentMaxShield);
+        }
     }
     public bool IsInvincible()
     {
         return isInvincible;
     }
+    private bool TryTriggerShield(GameObject enemy)
+    {
+        float chance = 0f;
+
+        switch (CardValue.ThornsShieldLevel)
+        {
+            case 1: chance = 0.10f; break;
+            case 2: chance = 0.15f; break;
+            case 3: chance = 0.30f; break;
+        }
+
+        // 只有原始 chance > 0 才考虑 Boss 加成
+        if (chance > 0f && enemy != null && enemy.CompareTag("Boss"))
+        {
+            chance += 0.5f;
+        }
+
+        if (chance <= 0f) return false;
+
+        // 随机判定是否触发
+        if (Random.value < chance)
+        {
+            StartCoroutine(TriggerShield());
+            return true;
+        }
+
+        return false;
+    }
+    private IEnumerator TriggerShield()
+    {
+        isInvincible = true;
+        // TODO：可以加上护盾特效，比如开启护罩粒子效果
+        Debug.Log("haha");
+        yield return new WaitForSeconds(0.5f); // 无敌持续时间
+        isInvincible = false;
+    }
+
     IEnumerator HurtRoutine()
     {
         //CantMove(0.5f);
@@ -426,6 +595,22 @@ public class PlayerController : MonoBehaviour
         // 恢复原色
         spriteRenderer.color = originalColor;
         yield return new WaitForSeconds(0.5f); // 无敌帧时长
+        isInvincible = false;
+    }
+    IEnumerator HurtRoutineShield()
+    {
+        //CantMove(0.5f);
+        isInvincible = true;
+        rb.velocity = Vector2.zero;
+        // 受伤动画
+        Color originalColor = spriteRenderer.color;
+        // 闪红色
+        spriteRenderer.color = Color.blue;
+        // 停顿一帧（或更久）
+        yield return new WaitForSeconds(0.3f);
+        // 恢复原色
+        spriteRenderer.color = originalColor;
+        yield return new WaitForSeconds(0.3f); // 无敌帧时长
         isInvincible = false;
     }
     IEnumerator Die()

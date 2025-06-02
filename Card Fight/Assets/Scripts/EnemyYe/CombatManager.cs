@@ -1,5 +1,6 @@
 using Core;
 using System.Collections;
+using Unity.Burst.CompilerServices;
 using UnityEngine;
 
 public class CombatManager : MonoBehaviour
@@ -17,7 +18,7 @@ public class CombatManager : MonoBehaviour
     {
         if (target.TryGetComponent<IHurtable>(out var hurtable))
         {
-            int baseAtk = playerValue.GetAttack();
+            int baseAtk = playerValue.GetcurrntAttack();
             float critRate = playerValue.GetCritRate();
             bool isCrit = Random.value < critRate;
 
@@ -31,7 +32,7 @@ public class CombatManager : MonoBehaviour
     {
         if (target.TryGetComponent<IHurtable>(out var hurtable))
         {
-            int baseDamage = playerValue.GetAttack();
+            int baseDamage = playerValue.GetBaseAttack();
 
             // 根据灼烧等级乘以倍率
             float[] damageMultipliers = { 1f, 1.15f, 1.45f }; // 对应等级1~3
@@ -46,7 +47,7 @@ public class CombatManager : MonoBehaviour
     {
         if (target.TryGetComponent<IHurtable>(out var hurtable))
         {
-            int baseDamage = playerValue.GetAttack();
+            int baseDamage = playerValue.GetBaseAttack();
 
             // 根据灼烧等级乘以倍率
             float[] damageMultipliers = { 1f, 1.15f, 1.45f }; // 对应等级1~3
@@ -67,7 +68,28 @@ public class CombatManager : MonoBehaviour
             target.GetComponent<MonoBehaviour>().StartCoroutine(ApplyBurning(hurtable, damage, tickInterval));
         }
     }
+    public void DealLightingDamage(GameObject target)
+    {
+        if (target.TryGetComponent<IHurtable>(out var hurtable))
+        {
+            int baseAttack = playerValue.GetBaseAttack();
 
+            // 等级：1 = 5%，2 = 10%，3 = 20%
+            float multiplier = 0.05f;
+            if (CardValue.AttackLighting == 2) multiplier = 0.10f;
+            else if (CardValue.AttackLighting >= 3) multiplier = 0.2f;
+
+            int bonusDamage = Mathf.RoundToInt(baseAttack * multiplier);
+            int totalDamage = baseAttack + bonusDamage;
+            hurtable.TakeDamage(totalDamage, false);
+
+            // 30% 概率眩晕
+            if (Random.value < 0.3f && target.TryGetComponent<IStunnable>(out var stunnable))
+            {
+                stunnable.Stun(CardValue. LightingPlus);
+            }
+        }
+    }
 
     private IEnumerator ApplyBurning(IHurtable hurtable, int startDamage, float interval)
     {
@@ -77,7 +99,6 @@ public class CombatManager : MonoBehaviour
         new Vector2(1f, 1f),       // 第一次：100%
         new Vector2(0.5f, 0.7f),   // 第二次：50%-70%
         new Vector2(0.3f, 0.4f),   // 第三次：30%-40%
-        new Vector2(0.1f, 0.2f)    // 第四次：10%-20%
         };
 
         foreach (var range in percentRanges)

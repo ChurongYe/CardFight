@@ -7,7 +7,7 @@ using static PlayerController;
 
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NavMeshAgent2D))]
-public class EnemyManager : MonoBehaviour, IHurtable
+public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
 {
     private PlayerValue playerValue;
     [Header("通用属性")]
@@ -40,6 +40,9 @@ public class EnemyManager : MonoBehaviour, IHurtable
     public float detectionRangePlayer = 20f;
     public float detectionRangeSummon = 2f;
 
+    protected bool isStunned = false;
+    protected float stunEndTime = -1f;
+
     protected virtual void Start()
     {
         playerValue = FindObjectOfType<PlayerValue>();
@@ -63,7 +66,20 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
     protected virtual void Update()
     {
-        if (isDead || isBeingHurt) return;
+        if (isDead) return;
+
+        if (isStunned)
+        {
+            if (Time.time >= stunEndTime)
+            {
+                isStunned = false;
+                agent.enabled = true;
+                ShowStunEffect(false);
+            }
+            return; // 被眩晕不能移动或攻击
+        }
+
+        if (isBeingHurt) return;
 
         UpdateEnemyLogic();
         if (hurtUI != null)
@@ -267,31 +283,34 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
     protected IEnumerator Knockback(Vector2 direction, float distance, float duration)
     {
-        isBeingHurt = true;
-        if (agent.enabled) agent.enabled = false;
-
-        Vector2 start = transform.position;
-        Vector2 target = start + direction * distance;
-
-        float elapsed = 0f;
-        while (elapsed < duration)
+        if (distance > 0f)
         {
-            transform.position = Vector2.Lerp(start, target, elapsed / duration);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
+            isBeingHurt = true;
+            if (agent.enabled) agent.enabled = false;
 
-        transform.position = target;
-        agent.Warp(transform.position);// 强制同步 agent 的位置
-        agent.enabled = true;
-        isBeingHurt = false;
+            Vector2 start = transform.position;
+            Vector2 target = start + direction * distance;
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                transform.position = Vector2.Lerp(start, target, elapsed / duration);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            transform.position = target;
+            agent.Warp(transform.position);// 强制同步 agent 的位置
+            agent.enabled = true;
+            isBeingHurt = false;
+        }
         isAttacked = false;
     }
 
     protected virtual void OnTriggerEnter2D(Collider2D collision)
     {
         if (!isAttacked && (collision.CompareTag("weaponSprite") || collision.CompareTag("SummonTrigger")
-            || collision.CompareTag("PlayerFire") || collision.CompareTag("Fireball")))
+            || collision.CompareTag("PlayerFire") || collision.CompareTag("Fireball") || collision.CompareTag("Lighting")))
         {
             //加入击退冷却判断
             if (Time.time - lastKnockbackTime < knockbackCooldown)
@@ -327,8 +346,11 @@ public class EnemyManager : MonoBehaviour, IHurtable
             }
             if (collision.CompareTag("Fireball"))
             {
-                Debug.Log("ss");
                 CombatManager.Instance.DealFireballDamage(gameObject);
+            }
+            if (collision.CompareTag("Lighting"))
+            {
+                CombatManager.Instance.DealLightingDamage(gameObject);
             }
             if (collision.CompareTag("SummonTrigger"))
             {
@@ -345,7 +367,7 @@ public class EnemyManager : MonoBehaviour, IHurtable
     {
         if (target.TryGetComponent<IHurtable>(out var hurtable))
         {
-            int baseAtk = playerValue.GetAttack();
+            int baseAtk = playerValue.GetBaseAttack();
             int burnDamage = Mathf.CeilToInt(baseAtk * 0.4f); // 初始伤害为攻击力的40%
 
             target.GetComponent<MonoBehaviour>().StartCoroutine(ApplyBurning(hurtable, burnDamage, tickCount, tickInterval));
@@ -365,5 +387,22 @@ public class EnemyManager : MonoBehaviour, IHurtable
 
             yield return new WaitForSeconds(interval);
         }
+    }
+    public virtual void Stun(float duration)
+    {
+        if (isDead) return;
+
+        isStunned = true;
+        stunEndTime = Time.time + duration;
+        agent.enabled = false;
+
+        // 可选：播放眩晕动画或粒子特效
+        ShowStunEffect(true);
+    }
+    protected virtual void ShowStunEffect(bool show)
+    {
+        // 示例：你可以在敌人头上显示眩晕标志
+        //Transform effect = transform.Find("StunEffect");
+        //if (effect != null) effect.gameObject.SetActive(show);
     }
 }

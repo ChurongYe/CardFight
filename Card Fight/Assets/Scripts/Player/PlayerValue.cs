@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace Core
@@ -15,7 +17,7 @@ namespace Core
         public float baseDashCooldown = 1f;
         public int baseMaxHP = 100;
         public int baseDefense = 2;
-        public int baseAttack = 1;
+        public int baseAttack = 10;
         public float baseCritRate = 0.05f;
         public float baseAttackSpeed = 0.25f;
 
@@ -34,8 +36,8 @@ namespace Core
             }
         }
         public float currentDashCooldown;
-        public static int currentMaxHP;
-        public int currentDefense;
+        public int currentMaxHP;
+        public static int currentDefense;
         public int currentAttack;
         public float currentCritRate;
         public float currentAttackSpeed;
@@ -52,8 +54,8 @@ namespace Core
         }
 
         public static int currentHP;
-        public int currentShield;
-
+        public static int currentShield;
+        public static bool hasTriggeredLowHpShield = false;
         // 统一管理所有 Buff
         private List<Buff> Buffs = new List<Buff>();
 
@@ -184,7 +186,83 @@ namespace Core
                 case "BloodCrit":
                     // 留空
                     break;
+                case "AttackLighting":
+                    // 留空
+                    break;
+                case "LightingPlus":
+                    // 留空
+                    break;
+                case "AttackLight":
+                    finalValue = isPercentage ? baseAttack * value : value;
+                    baseAttack += Mathf.RoundToInt(finalValue);
+                    if (baseAttack > currentAttack)
+                    {
+                        currentAttack = baseAttack;
+                    }
+                    break;
+                case "AddWallDefense":
+                    finalValue = isPercentage ? baseDefense * value : value;
+                    if (isPercentage && finalValue < 1f)
+                    {
+                        finalValue = 1f;
+                    }
 
+                    baseDefense += Mathf.RoundToInt(finalValue);
+
+                    if (baseDefense > currentDefense)
+                    {
+                        currentDefense = baseDefense;
+                    }
+                    break;
+                case "ThornsDamage":
+                    // 留空
+                    break;
+                case "ThornsShield":
+                    // 留空
+                    break;
+                case "AddTriggerLowHpShield":
+                    // 留空
+                    break;
+                case "AddTreeBlood1":
+                    finalValue = isPercentage ? baseMaxHP * value : value;
+                    baseMaxHP += Mathf.RoundToInt(finalValue);
+                    if (baseMaxHP > currentMaxHP)
+                    {
+                        currentMaxHP = baseMaxHP;
+                    }
+                    break;
+                case "AddTreeBlood2":
+                    finalValue = isPercentage ? currentMaxHP * value : value;
+
+                    if (finalValue > 0)
+                    {
+                        float hpPercent = (float)currentHP / currentMaxHP; // 记录当前血量百分比
+
+                        currentMaxHP += Mathf.RoundToInt(finalValue);       // 增加最大血量
+                        currentHP = Mathf.RoundToInt(currentMaxHP * hpPercent); // 按比例更新当前血量
+                    }
+                    break;
+                case "AddStealLevel":
+                    // 留空
+                    break;
+                case "AddDashTree":
+                    finalValue = isPercentage ? baseDashCooldown * value : value;
+
+                    if (isPercentage && finalValue < 0.05f)
+                    {
+                        finalValue = 0.05f;
+                    }
+
+                    baseDashCooldown -= finalValue;
+
+                    // 限制在 [0.1f, 1f] 范围内
+                    baseDashCooldown = Mathf.Clamp(baseDashCooldown, 0.1f, 1f);
+
+                    if (baseDashCooldown < currentDashCooldown)
+                    {
+                        currentDashCooldown = baseDashCooldown;
+                    }
+                    break;
                 default:
                     Debug.LogWarning("Unknown stat: " + stat);
                     break;
@@ -265,7 +343,31 @@ namespace Core
                 lastBloodCritBonus = newBonus;
             }
         }
+        /// <summary>
+        /// ////////////吸血
+        /// </summary>
+        /// <param name="damageDealt"></param>
+        public void TryLifeSteal(int damageDealt)
+        {
+            float stealPercent = 0f;
 
+            switch (CardValue.LifeStealLevel)
+            {
+                case 1: stealPercent = 0.1f; break;
+                case 2: stealPercent = 0.2f; break;
+                case 3: stealPercent = 0.35f; break;
+                default: return; // 未开启吸血
+            }
+
+            int healAmount = Mathf.RoundToInt(damageDealt * stealPercent);
+            if (currentHP < currentMaxHP)
+            {
+                currentHP = Mathf.Min(currentHP + healAmount, currentMaxHP);
+
+                // 可选：回血特效、飘字提示
+                // ShowHealEffect(healAmount);
+            }
+        }
         private IEnumerator RemoveOnceBuffAfterDuration(Buff buff, float duration)
         {
             yield return new WaitForSeconds(duration);
@@ -299,6 +401,20 @@ namespace Core
         public void ClearStageBuffs()
         {
             RemoveBuffsByType(BuffType.Stage);
+            // 清除所有Once buff，重置后Once全清
+            RemoveBuffsByType(BuffType.Once);
+            currentMoveSpeed = baseMoveSpeed;
+            currentDashCooldown = baseDashCooldown;
+            currentMaxHP = baseMaxHP;
+            currentDefense = baseDefense;
+            currentAttack = baseAttack;
+            //currentCritRate = baseCritRate;
+            currentAttackSpeed = baseAttackSpeed;
+            currentShield = 0;
+            if (currentHP > currentMaxHP)
+            { currentHP = currentMaxHP; }
+            hasTriggeredLowHpShield = false;
+
         }
 
         /// <summary>
@@ -310,7 +426,8 @@ namespace Core
         }
 
         // 获取当前攻击力示例
-        public int GetAttack() => currentAttack;
+        public int GetcurrntAttack() => currentAttack;
+        public int GetBaseAttack() => baseAttack;
         public float GetCritRate() => currentCritRate;
 
     }
