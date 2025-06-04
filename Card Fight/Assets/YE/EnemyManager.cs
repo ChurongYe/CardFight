@@ -16,6 +16,9 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     public float knockbackDistance = 0.5f;
     public float dieDelay = 0.5f;
     public GameObject attackArea;
+    public bool IfsetAttackRadius;
+    public bool ifattacking = false;
+    public bool IfneedWalk = true;
 
     [Header("靠近目标参数")]
     [SerializeField] protected float stopThreshold = 0.1f;   // 靠近到这个范围就停止
@@ -35,7 +38,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     protected bool hasApproachPoint = false;
 
     protected HurtUI hurtUI;
-    protected GameObject player;
+    public GameObject player;
 
     public float detectionRangePlayer = 20f;
     public float detectionRangeSummon = 2f;
@@ -50,9 +53,6 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         agent = GetComponent<NavMeshAgent2D>();
         currentHP = maxHP;
 
-        // 设置停止距离
-        CalculateStopThresholdFromAttackArea();
-
         // 初始化血条
         GameObject barPrefab = Resources.Load<GameObject>("EnemyHealthBar");
         if (barPrefab != null)
@@ -66,6 +66,8 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
 
     protected virtual void Update()
     {
+        if (hurtUI != null)
+            hurtUI.transform.localScale = transform.localScale;
         if (isDead) return;
 
         if (isStunned)
@@ -80,17 +82,23 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         }
 
         if (isBeingHurt) return;
-
-        UpdateEnemyLogic();
-        if (hurtUI != null)
-            hurtUI.transform.localScale = transform.localScale;
+        if (ifattacking) return;
+        SearchForTarget();//寻找目标
+        if (!IfneedWalk) return;
+        UpdateEnemyLogic();//接近目标
     }
-
-    protected virtual void UpdateEnemyLogic()
+    protected virtual void SearchForTarget()
     {
         if (currentTarget == null)
-            SearchForPlayer();
-
+            SearchForPlayer();//寻找目标
+        else
+        {
+            if (currentTarget.CompareTag("Player"))
+                SearchForSummon(); // 优先切目标
+        }
+    }
+    protected virtual void UpdateEnemyLogic()
+    {
         if (currentTarget != null)
         {
             //先判断是否在攻击范围内
@@ -104,27 +112,56 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
             {
                 MoveToTargetWithStopNearEdge(currentTarget);
             }
-
-            if (currentTarget.CompareTag("Player"))
-                SearchForSummon(); // 优先切目标
         }
     }
     protected virtual bool IsInAttackRange(Transform target)
     {
         if (attackArea == null || target == null) return false;
-
-        float attackRange = 0.5f;
-        Collider2D col = attackArea.GetComponent<Collider2D>();
-        if (col is BoxCollider2D box)
+        if(!IfsetAttackRadius)
         {
-            attackRange = box.size.x * 0.5f * attackArea.transform.lossyScale.x;
-        }
-        else if (col is CircleCollider2D circle)
-        {
-            attackRange = circle.radius * attackArea.transform.lossyScale.x;
+            float approachMinRatio = 0.6f; // 最小接近距离 = 攻击距离 × 0.6
+            float approachMaxRatio = 0.9f;// 最大接近距离 = 攻击距离 × 0.9
+            float attackRange = 0.5f; // 默认攻击距离
+            Collider2D col = attackArea.GetComponent<Collider2D>();
+            if (col is BoxCollider2D box)
+            {
+                attackRange = box.size.x * 0.5f * attackArea.transform.lossyScale.x;
+            }
+            else if (col is CircleCollider2D circle)
+            {
+                attackRange = circle.radius * attackArea.transform.lossyScale.x;
+            }
+            else
+            {
+                Debug.LogWarning("未识别的碰撞体类型，使用默认攻击距离");
+            }
+
+            // 按照比例设置靠近半径
+            approachMinRadius = attackRange * approachMinRatio;
+            approachMaxRadius = attackRange * approachMaxRatio;
         }
 
-        return Vector2.Distance(transform.position, target.position) <= attackRange;
+        float distanceToTarget = Vector2.Distance(transform.position, target.position);
+
+        //不在距离范围内，直接返回 false
+        if (distanceToTarget < approachMinRadius || distanceToTarget > approachMaxRadius)
+            return false;
+
+        //增加这段：进行视线检测（防止隔墙攻击）
+        Vector2 start = transform.position;
+        Vector2 end = target.position;
+
+        // LayerMask 设置成你的“墙体”层
+        int obstacleLayerMask = LayerMask.GetMask("Wall", "Obstacle");
+
+        // 如果中间打到墙，就不能攻击
+        RaycastHit2D hit = Physics2D.Linecast(start, end, obstacleLayerMask);
+        if (hit.collider != null)
+        {
+            return false; // 被墙挡住了
+        }
+
+        return true;
     }
     protected void MoveToTargetWithStopNearEdge(Transform target)
     {
@@ -144,45 +181,14 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
             agent.destination = transform.position;
             OnTryAttack();
         }
-        // 防止太贴近玩家
-        if (target.CompareTag("Player") && Vector2.Distance(transform.position, target.position) < 0.4f)
-        {
-            agent.destination = transform.position;
-            OnTryAttack();
-        }
+        //// 防止太贴近玩家
+        //if (target.CompareTag("Player") && Vector2.Distance(transform.position, target.position) < 0.4f)
+        //{
+        //    agent.destination = transform.position;
+        //    OnTryAttack();
+        //}
     }
-    protected void CalculateStopThresholdFromAttackArea()
-    {
-        if (attackArea == null)
-        {
-            approachMinRadius = 0.3f;
-            approachMaxRadius = 0.5f;
-            return;
-        }
-        float approachMinRatio = 0.6f; // 最小接近距离 = 攻击距离 × 0.6
-        float approachMaxRatio = 0.9f;// 最大接近距离 = 攻击距离 × 0.9
-        float attackRange = 0.5f; // 默认攻击距离
-        Collider2D col = attackArea.GetComponent<Collider2D>();
-        if (col is BoxCollider2D box)
-        {
-            attackRange = box.size.x * 0.5f * attackArea.transform.lossyScale.x;
-        }
-        else if (col is CircleCollider2D circle)
-        {
-            attackRange = circle.radius * attackArea.transform.lossyScale.x;
-        }
-        else
-        {
-            Debug.LogWarning("未识别的碰撞体类型，使用默认攻击距离");
-        }
-
-        // 按照比例设置靠近半径
-        approachMinRadius = attackRange * approachMinRatio;
-        approachMaxRadius = attackRange * approachMaxRatio;
-
-        // 再给一个缓冲区设置停止阈值
-        stopThreshold = attackRange + extraStopBuffer;
-    }
+    
     protected virtual void OnTryAttack() { }
 
     protected void FaceTarget(Transform target)
@@ -225,7 +231,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         if (target != null)
         {
             currentTarget = target;
-            CreateApproachPoint(target.position, 1.5f, 2.5f);
+            //CreateApproachPoint(target.position, 1.5f, 2.5f);
         }
     }
 
@@ -254,7 +260,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         if (target != null)
         {
             currentTarget = target;
-            CreateApproachPoint(target.position, 1.5f, 2.5f);
+            //CreateApproachPoint(target.position, 1.5f, 2.5f);
         }
     }
 
@@ -277,7 +283,8 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     protected virtual IEnumerator Die()
     {
         isDead = true;
-        if (agent) agent.destination = transform.position;
+        if (agent)
+        { agent.destination = transform.position; }
         GetComponent<Collider2D>().enabled = false;
         yield return new WaitForSeconds(dieDelay);
         Destroy(gameObject);

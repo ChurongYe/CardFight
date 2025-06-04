@@ -229,21 +229,21 @@ namespace Core
                     break;
                 case "AddTreeBlood1":
                     finalValue = isPercentage ? baseMaxHP * value : value;
-                    baseMaxHP += Mathf.RoundToInt(finalValue);
-                    if (baseMaxHP > currentMaxHP)
-                    {
-                        currentMaxHP = baseMaxHP;
-                    }
-                    break;
-                case "AddTreeBlood2":
-                    finalValue = isPercentage ? currentMaxHP * value : value;
 
                     if (finalValue > 0)
                     {
                         float hpPercent = (float)currentHP / currentMaxHP; // 记录当前血量百分比
 
-                        currentMaxHP += Mathf.RoundToInt(finalValue);       // 增加最大血量
+                        baseMaxHP = currentMaxHP += Mathf.RoundToInt(finalValue);       // 增加最大血量
                         currentHP = Mathf.RoundToInt(currentMaxHP * hpPercent); // 按比例更新当前血量
+                    }
+                    break;
+                case "AddTreeBlood2":
+                    finalValue = isPercentage ? currentMaxHP * value : value;
+                    if (currentHP < currentMaxHP)
+                    {
+                        int heal = Mathf.RoundToInt(finalValue);
+                        currentHP = Mathf.Min(currentHP + heal, currentMaxHP);
                     }
                     break;
                 case "AddStealLevel":
