@@ -16,10 +16,10 @@ public class MeleeEnemy : EnemyManager
     {
         ifattacking = true;
         if (!isAttacking)
-            TryAttack();
+            StartCoroutine(TryAttack());
     }
 
-    private void TryAttack()
+    private IEnumerator TryAttack()
     {
         if (Time.time - lastAttackTime >= attackCooldown && currentTarget != null)
         {
@@ -33,18 +33,23 @@ public class MeleeEnemy : EnemyManager
                 attackArea.transform.SetPositionAndRotation(newWorldPos, Quaternion.Euler(0, 0, angle));
 
             lastAttackTime = Time.time;
-            StartCoroutine(AttackRoutine(AttackTime));
-        }
-    }
 
-    IEnumerator AttackRoutine(float time)
-    {
-        isAttacking = true;
-        yield return new WaitForSeconds(0.5f);
-        if (attackArea != null) attackArea.SetActive(true);
-        yield return new WaitForSeconds(time);
-        if (attackArea != null) attackArea.SetActive(false);
-        isAttacking = false;
-        ifattacking = false;
+            // --- AttackRoutine合并进来了 ---
+            isAttacking = true;
+
+            yield return new WaitForSeconds(0.5f);
+            if (attackArea != null) attackArea.SetActive(true);
+
+            yield return new WaitForSeconds(AttackTime);
+            if (attackArea != null) attackArea.SetActive(false);
+
+            isAttacking = false;
+            ifattacking = false;
+        }
+        else
+        {
+            // 攻击失败的情况也可以重置 ifattacking，否则状态卡住
+            ifattacking = false;
+        }
     }
 }

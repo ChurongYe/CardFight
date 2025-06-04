@@ -357,7 +357,7 @@ public class PlayerController : MonoBehaviour
             if (currentTarget != null)
             {
                 float distance = Vector2.Distance(transform.position, currentTarget.position);
-                float attackRange = currentAttackMode == AttackMode.Melee ? 2f : 100f;
+                float attackRange = currentAttackMode == AttackMode.Melee ? 3f : 100f;
 
                 // **新增射线检测，确保当前目标没被墙挡住**
                 Vector2 origin = transform.position;
@@ -436,7 +436,7 @@ public class PlayerController : MonoBehaviour
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
         knife.GetComponent<RangedKnife>().Launch(dirToTarget);
         playerValue.ResetLifeStealFlag();//加血
-        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2.45f);
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
         canAttack = true;
         ifAttacking = false;
     }
