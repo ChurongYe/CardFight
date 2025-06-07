@@ -19,6 +19,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     public bool IfsetAttackRadius;
     public bool ifattacking = false;
     public bool IfneedWalk = true;
+    public bool CanKnockback = true;
 
     [Header("靠近目标参数")]
     [SerializeField] protected float stopThreshold = 0.1f;   // 靠近到这个范围就停止
@@ -292,7 +293,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
 
     protected IEnumerator Knockback(Vector2 direction, float distance, float duration)
     {
-        if (distance > 0f)
+        if (distance > 0f && CanKnockback)
         {
             isBeingHurt = true;
             if (agent.enabled) agent.enabled = false;
@@ -370,10 +371,9 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
             {
                 CombatManager.Instance.DealDamage(gameObject);
             }
-            Vector2 dir = (transform.position - collision.transform.position).normalized;
+            Vector2 dir = (transform.position - player.transform.position).normalized;
             float kb = collision.CompareTag("weaponSprite") ? knockbackDistance : 0f;
             float duration = 0.2f;
-
             StartCoroutine(Knockback(dir, kb, duration));
         }
     }

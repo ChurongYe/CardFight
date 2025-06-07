@@ -34,6 +34,7 @@ public class PlayerController : MonoBehaviour
 
     private bool isDashing = false;
     private bool canDash = true;
+    private bool isKnockbacking = false;
 
     [Header("Combat")]
     public Weapon weapon;
@@ -168,6 +169,8 @@ public class PlayerController : MonoBehaviour
     }
     void FixedUpdate()
     {
+        if (isKnockbacking)
+            return; // 正在击退时，不处理其他移动
         if (!canMove)
         {
             float decelerationSpeed = 2000f;
@@ -207,14 +210,28 @@ public class PlayerController : MonoBehaviour
         playerAnimator.SetFloat("AttackSpeedMultiplier", playerValue.currentAttackSpeed);
         playerAnimator.SetBool("AorR", AorR);
     }
-    public void CantMove(float time)
+    public void CantMove(float time, Vector2 knockbackDirection)
     {
+        StartCoroutine(KnockbackAndStop(knockbackDirection, time));
+    }
+    IEnumerator KnockbackAndStop(Vector2 direction, float stopTime)
+    {
+        isKnockbacking = true;
         canMove = false;
-        float decelerationSpeed = 2000f;
-        rb.velocity = Vector2.MoveTowards(rb.velocity, Vector2.zero, decelerationSpeed * Time.deltaTime);
-        currentVelocity = rb.velocity;
-        moveInput = Vector2.zero;
-        StartCoroutine(Stoptime(time));
+
+        float knockbackDuration = 0.1f;
+        float knockbackPower = 30f;
+
+        rb.velocity = direction.normalized * knockbackPower;
+
+        yield return new WaitForSeconds(knockbackDuration);
+
+        isKnockbacking = false;
+        rb.velocity = Vector2.zero;
+
+        yield return new WaitForSeconds(stopTime - knockbackDuration);
+
+        canMove = true;
     }
     IEnumerator Stoptime(float time)
     {
@@ -426,19 +443,23 @@ public class PlayerController : MonoBehaviour
         Attacking = true;
         canAttack = false;
 
-        if (currentTarget == null) yield break;
+        // 攻击间隔仍按速度影响
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
+
+        canAttack = true;
+        ifAttacking = false;
+    }
+    public void FireRangedWeapon()
+    {
+        if (currentTarget == null) return;
 
         Vector2 dirToTarget = (currentTarget.position - transform.position).normalized;
-
         float angle = Mathf.Atan2(dirToTarget.y, dirToTarget.x) * Mathf.Rad2Deg;
         Quaternion rotation = Quaternion.Euler(0, 0, angle);
 
         GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
         knife.GetComponent<RangedKnife>().Launch(dirToTarget);
-        playerValue.ResetLifeStealFlag();//加血
-        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
-        canAttack = true;
-        ifAttacking = false;
+        playerValue.ResetLifeStealFlag(); // 吸血逻辑
     }
     GameObject FindNearestEnemy()
     {
