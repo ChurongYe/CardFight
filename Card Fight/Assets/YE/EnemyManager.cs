@@ -404,7 +404,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     }
     public virtual void Stun(float duration)
     {
-        if (isDead) return;
+        if (isDead || duration <= 0f) return;
 
         isStunned = true;
         stunEndTime = Time.time + duration;

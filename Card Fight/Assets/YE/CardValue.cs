@@ -153,9 +153,21 @@ namespace Core
             if (AttackLighting < 3)
                 AttackLighting++;
         }
+        public static int LightingPlus = 0;
+        public void AddLightingPlus() //电2
+        {
+            if (AttackLighting == 0) return;
+            if (LightingPlus == 0)
+            {
+                playerValue.IncreaseStat("LightingPlus", 0, BuffType.Session);
+                // 你可以根据需要添加动画/提示等
+            }
+            if (LightingPlus < 3)
+                LightingPlus++;
+        }
         public static int OneLightLevel = 0; // 默认为0，最大3级
         public static bool OneLight = false;
-        public void AddOneLight()//电2
+        public void AddOneLight()//电3
         {
             if (OneLightLevel == 0)
             {
@@ -168,25 +180,13 @@ namespace Core
                 OneLightLevel++;
         }
         public static int AttackLight = 0;
-        public void AddAttackLight() //电3
+        public void AddAttackLight() //电4
         {
             if (AttackLight < 3)
             {
                 AttackLight++;
                 playerValue.IncreaseStat("AttackLight", 0.3f, BuffType.Session, 0, true);
             }
-        }
-        public static int LightingPlus = 0;
-        public void AddLightingPlus() //电4
-        {
-            if (AttackLighting == 0) return;
-            if (LightingPlus == 0)
-            {
-                playerValue.IncreaseStat("LightingPlus", 0, BuffType.Session);
-                // 你可以根据需要添加动画/提示等
-            }
-            if (LightingPlus < 3)
-                LightingPlus++;
         }
         public static int WallDefense = 0;
         public void AddWallDefense() //墙1
