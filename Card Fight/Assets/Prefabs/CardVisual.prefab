@@ -351,10 +351,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   parentCard: {fileID: 0}
+  data:
+    suit: 0
+    number: 0
+    specialType: 0
+    sprite: {fileID: 0}
+  cardImage: {fileID: 7697484841366769644}
+  cardBackSprite: {fileID: 21300000, guid: a645499deac5944f593fdcd569acc1e7, type: 3}
   visualShadow: {fileID: 9157190824811683565}
   shakeParent: {fileID: 3449025543118524474}
   tiltParent: {fileID: 5862976466474931636}
-  cardImage: {fileID: 7697484841366769644}
   followSpeed: 25
   rotationAmount: 70
   rotationSpeed: 50

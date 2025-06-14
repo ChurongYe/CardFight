@@ -1,13 +1,17 @@
-
+﻿
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine.UI;
+using Unity.VisualScripting.Antlr3.Runtime.Misc;
+using UnityEngine.WSA;
+using Unity.VisualScripting;
 
 public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerUpHandler, IPointerDownHandler
 {
+    private HorizontalCardHolder holder;
     private Canvas canvas;
     private Image imageComponent;
     [SerializeField] private bool instantiateVisual = true;
@@ -32,6 +36,15 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
     public bool isDragging;
     [HideInInspector] public bool wasDragged;
 
+    [Header("Slot State")]
+    public bool currentSprite = false;
+    public bool isCoolingDown = false;
+    public bool isLocked = false; // 新增：是否锁定
+    public Image lockOverlay; // UI图层：用于显示锁的遮罩图或透明层
+    public float cooldownTime = 2f;
+    private float cooldownTimer = 5f;
+    public Image cooldownOverlay;
+
     [Header("Events")]
     [HideInInspector] public UnityEvent<Card> PointerEnterEvent;
     [HideInInspector] public UnityEvent<Card> PointerExitEvent;
@@ -50,10 +63,45 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
             return;
 
         visualHandler = FindObjectOfType<VisualCardsHandler>();
-        cardVisual = Instantiate(cardVisualPrefab, visualHandler ? visualHandler.transform : canvas.transform).GetComponent<CardVisual>();
-        cardVisual.Initialize(this);
+        holder = FindObjectOfType<HorizontalCardHolder>();
+        //cardVisual = Instantiate(cardVisualPrefab, visualHandler ? visualHandler.transform : canvas.transform).GetComponent<CardVisual>();
+        StartCoroutine(FillSlots());
     }
+    IEnumerator FillSlots()
+    {
+        yield return new WaitForSeconds(0.1f);
 
+        // 如果是锁定的卡槽，显示卡背面，不执行抽卡逻辑
+        if (isLocked)
+        {
+            GameObject visual = Instantiate(cardVisualPrefab, visualHandler ? visualHandler.transform : canvas.transform);
+            cardVisual = visual.GetComponent<CardVisual>();
+            cardVisual.Initialize(this);
+            cardVisual.SetCardBack(); //你需要实现这个方法，用来显示卡背面
+            currentSprite = true;
+            yield break;
+        }
+
+        if (!currentSprite && !isCoolingDown)
+        {
+            if (holder.cardPool.Count == 0)
+            {
+                Debug.LogWarning("cardPool is empty! 无法生成卡牌");
+                yield break;
+            }
+
+            int randomIndex = Random.Range(0, holder.cardPool.Count);
+            CardData card = holder.cardPool[randomIndex];
+
+            GameObject VisualPrefab = Instantiate(cardVisualPrefab, visualHandler ? visualHandler.transform : canvas.transform);
+            cardVisual = VisualPrefab.GetComponent<CardVisual>();
+            cardVisual.Initialize(this);
+            cardVisual.SetCard(card);
+            currentSprite = true;
+
+            holder.cardPool.RemoveAt(randomIndex);
+        }
+    }
     void Update()
     {
         ClampPosition();
@@ -66,7 +114,32 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
             transform.Translate(velocity * Time.deltaTime);
         }
     }
+    /// <summary>
+    /// ////////////////////////////////////////////////
+    /// </summary>
+    /// <param name="locked"></param>
+    public void SetLocked(bool locked)
+    {
+        isLocked = locked;
+        //if (lockOverlay != null)
+        //    lockOverlay.gameObject.SetActive(locked);
+    }
 
+    public void StartCooldown(System.Action onCooldownEnd)
+    {
+        StartCoroutine(CooldownCoroutine(onCooldownEnd));
+    }
+
+    private IEnumerator CooldownCoroutine(System.Action onCooldownEnd)
+    {
+        isCoolingDown = true;
+        yield return new WaitForSeconds(cooldownTimer); // 冷却时间
+        isCoolingDown = false;
+        onCooldownEnd?.Invoke();
+    }
+    /// <summary>
+    /// //////////////////////////////////////////////////////////
+    /// </summary>
     void ClampPosition()
     {
         Vector2 screenBounds = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, Camera.main.transform.position.z));
@@ -78,6 +151,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (isLocked) return;
         BeginDragEvent.Invoke(this);
         Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         offset = mousePosition - (Vector2)transform.position;
@@ -94,6 +168,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        if (isLocked) return;
         EndDragEvent.Invoke(this);
         isDragging = false;
         canvas.GetComponent<GraphicRaycaster>().enabled = true;
@@ -110,12 +185,14 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (isLocked) return;
         PointerEnterEvent.Invoke(this);
         isHovering = true;
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (isLocked) return;
         PointerExitEvent.Invoke(this);
         isHovering = false;
     }
@@ -123,6 +200,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (isLocked) return;
         if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
@@ -132,6 +210,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        if (isLocked) return;
         if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
@@ -156,6 +235,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
 
     public void Deselect()
     {
+        if (isLocked) return;
         if (selected)
         {
             selected = false;

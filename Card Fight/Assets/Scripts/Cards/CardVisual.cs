@@ -18,6 +18,12 @@ public class CardVisual : MonoBehaviour
     private int savedIndex;
     Vector3 movementDelta;
     private Canvas canvas;
+    public CardData data;
+    /// <summary>
+    /// /
+    /// </summary>
+    public Image cardImage;
+    [SerializeField] private Sprite cardBackSprite; // ‘⁄ Inspector ÷–Õœ»Îø®±≥Õº∆¨
 
     [Header("References")]
     public Transform visualShadow;
@@ -26,7 +32,6 @@ public class CardVisual : MonoBehaviour
     private Canvas shadowCanvas;
     [SerializeField] private Transform shakeParent;
     [SerializeField] private Transform tiltParent;
-    [SerializeField] private Image cardImage;
 
     [Header("Follow Parameters")]
     [SerializeField] private float followSpeed = 30;
@@ -90,7 +95,17 @@ public class CardVisual : MonoBehaviour
         //Initialization
         initalize = true;
     }
-
+    public void SetCardBack()
+    {
+        if (cardImage != null && cardBackSprite != null)
+        {
+            cardImage.sprite = cardBackSprite;
+        }
+        else
+        {
+            Debug.LogWarning("CardVisual: ø®±≥ sprite ªÚ cardImage Œ¥…Ë÷√");
+        }
+    }
     public void UpdateIndex(int length)
     {
         transform.SetSiblingIndex(parentCard.transform.parent.GetSiblingIndex());
@@ -106,7 +121,11 @@ public class CardVisual : MonoBehaviour
         CardTilt();
 
     }
-
+    public void SetCard(CardData card)
+    {
+        data = card;
+        cardImage.sprite = card.sprite;
+    }
     private void HandPositioning()
     {
         curveYOffset = (curve.positioning.Evaluate(parentCard.NormalizedPosition()) * curve.positioningInfluence) * parentCard.SiblingAmount();
