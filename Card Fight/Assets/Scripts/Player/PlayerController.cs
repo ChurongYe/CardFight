@@ -1,21 +1,30 @@
+﻿using Core;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UI;
 using static Unity.Collections.AllocatorManager;
+using static Unity.VisualScripting.Member;
 
 public class PlayerController : MonoBehaviour
 {
+    [SerializeField]
+    private Core.PlayerValue playerValue;
+    public enum AttackMode { Melee, Ranged }
+    public static AttackMode currentAttackMode = AttackMode.Melee;
     [Header("Movement")]
     private GameObject Face;
-    private float walkSpeed = 7f;
-    private float acceleration = 80f;
-    private float moveThreshold = 0.01f; // ��ֹ��ֵ
 
-    private float dashSpeed = 25f;
-    private float dashCooldown = 1f;
+    private float walkSpeed = 10f;//*
+    public float acceleration = 80f;
+    private float moveThreshold = 0.01f; // 静止阈值
+
+    public float dashSpeed = 25f;
+    //private float dashCooldown = 1f;//*
     private float dashDuration = 0.2f;
 
-    private Vector2 FaceVector;//�������
+    private Vector2 FaceVector;//冲刺面向
     private Vector3 mouseDir;
 
     private Vector2 currentVelocity;
@@ -25,103 +34,146 @@ public class PlayerController : MonoBehaviour
 
     private bool isDashing = false;
     private bool canDash = true;
+    private bool isKnockbacking = false;
 
     [Header("Combat")]
     public Weapon weapon;
     public GameObject rangedWeaponPrefab;
-    private float attackCooldownMelee = 0.05f;
-    private float attackCooldownRanged = 0.3f;
-    private float reducedMoveSpeed = 2f; 
-    private float originalMoveSpeed;
+    //private float attackCooldown = 0.3f;//*
+    private float reducedMoveSpeed = 2f;
+    private bool isSlowed = false;
+    public float impactForce = 1f;
+    public bool ifclear = false; //净化
+
     private bool canAttack = true;
-    bool ifCharge = false ;
-    private float chargeTime = 0f;
-    private float maxChargeTime = 2f;
-    private float minEffectiveChargeTime = 0.5f;
-
-    [Header("Summon")]
-    public GameObject summonPrefab;
-    private float summonDuration = 7f;
-    private float summonCooldown = 15f;
-    private bool canSummon = true;
-
-    [Header("Block")]
-    public GameObject shield;
-    bool ifBlock = false;
-
-    [Header("Targeting")]
     private Transform currentTarget;
-    private bool isTargetLocked;
+    private bool Attacking = false;
+    private bool wasMovingLastFrame = false;
+    private bool shouldRefreshTarget = false;
 
     [Header("Health")]
-    public int maxHealth = 100;
-    private int currentHealth;
+    //private int playerHealth = 10;//*
+    //private int currentHealth; //*
     private bool isInvincible;
+
+    [Header("UI")]
+    public Image HealthfillImage;
 
     [Header("Animator")]
     private Animator playerAnimator;
+    private bool ifAttacking = false;
+    private bool AorR = true ;
+
+    private SpriteRenderer spriteRenderer;
+    [Header("CardFire")]
+    public GameObject PlayerFire;
+    public Camera mainCamera; // 主摄像机
+    public GameObject fireballPrefab;
+    public float fireballCooldownTime = 6f;// 每个火球间隔时间
+    private float fireballCooldownTimer = 0f;
+    private bool isCoolingDown = false;
+    //public int fireballCount = 5;
+
+    [Header("Light")]
+    public GameObject lightningBeamPrefab;
+    bool isLightningCoolingDown = false;
+    float lightningCooldownTimer = 0f;
+    float lightningCooldownTime = 0f;
+
+    [Header("Shield")]
+    private GameObject bar;    // 盾牌量预制体
+    private HurtUI hurtUI;
+    private int currentMaxShield;
+
     void Start()
     {
+        playerValue = FindObjectOfType<Core.PlayerValue>();
         Face = GameObject.FindWithTag("Face");
         rb = GetComponent<Rigidbody2D>();
-        currentHealth = maxHealth;
+        playerValue.OnMoveSpeedChanged += speed => walkSpeed = speed;
         playerAnimator = GetComponent<Animator>();
-        originalMoveSpeed = walkSpeed;
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     void Update()
     {
-        if (canMove) HandleMovement();
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            currentAttackMode = currentAttackMode == AttackMode.Melee ? AttackMode.Ranged : AttackMode.Melee;
+            AorR = currentAttackMode == AttackMode.Melee ? true : false;
+        }
+        if (canMove)
+        {
+            HandleMovement();
+        }
         HandleCombat();
-        HandleTargetLock();
-        HandleBlock();
+        PlayerAnimation();
+        UpdateHealth(PlayerValue.currentHP, playerValue.currentMaxHP);
+        //
+        Fire();
+        Lighting();
+        if (PlayerValue.currentShield <= 0)
+        {
+            Destroy(bar, 0.5f);
+            // TODO: 护盾破裂视觉效果
+        }
     }
-    //��װ��ֵ
-    #region Move
-    public float WalkSpeed
+    public bool Ifball = false;
+    void Fire()
     {
-        get { return walkSpeed; }
-        set { walkSpeed = value; }
+        if(ifAttacking && CardValue.PlayerFire && currentAttackMode == AttackMode.Melee)
+        {
+            PlayerFire.SetActive(true);
+        }
+        else
+        {
+            PlayerFire.SetActive(false );
+        }
+        if (CardValue.fireball && ifAttacking && !Ifball && !isCoolingDown && currentAttackMode == AttackMode.Melee)
+        {
+            TrySummonFireballs();
+        }
+        // 攻击时才推进冷却
+        if (isCoolingDown && ifAttacking && currentAttackMode == AttackMode.Melee)
+        {
+            fireballCooldownTimer += Time.deltaTime;
+            if (fireballCooldownTimer >= fireballCooldownTime)
+            {
+                fireballCooldownTimer = 0f;
+                isCoolingDown = false;
+                Ifball = false;
+            }
+        }
     }
-    public float DashSpeed
-    {
-        get { return dashSpeed; }
-        set { dashSpeed = value; }
-    }
-    public float DashCooldown
-    {
-        get { return dashCooldown; }
-        set { dashCooldown = value; }
-    }
-    public float ReducedMoveSpeed
-    {
-        get { return reducedMoveSpeed; }
-        set { reducedMoveSpeed = value; }
-    }
-    #endregion
-    #region Attack
-    public float MaxChargeTime
-    {
-        get { return maxChargeTime; }
-        set { maxChargeTime = value; }
-    }
-    public float SummonDuration
-    {
-        get { return summonDuration; }
-        set { summonDuration = value; }
-    }
-    public float SummonCooldown
-    {
-        get { return summonCooldown; }
-        set { summonCooldown = value; }
-    }
-    #endregion
 
+    void Lighting()
+    {
+        if (CardValue.OneLight && ifAttacking && !isLightningCoolingDown && currentAttackMode == AttackMode.Ranged)
+        {
+            TryCastLightningBeam();
+        }
+
+        if (isLightningCoolingDown && ifAttacking && currentAttackMode == AttackMode.Ranged)
+        {
+            lightningCooldownTimer += Time.deltaTime;
+            if (lightningCooldownTimer >= lightningCooldownTime)
+            {
+                lightningCooldownTimer = 0f;
+                isLightningCoolingDown = false;
+            }
+        }
+    }
+    public void UpdateHealth(float currentHP, float maxHP)
+    {
+        HealthfillImage.fillAmount = currentHP / maxHP;
+    }
     void FixedUpdate()
     {
+        if (isKnockbacking)
+            return; // 正在击退时，不处理其他移动
         if (!canMove)
         {
-            float decelerationSpeed = 30f;
+            float decelerationSpeed = 2000f;
             rb.velocity = Vector2.MoveTowards(rb.velocity, Vector2.zero, decelerationSpeed * Time.deltaTime);
             currentVelocity = rb.velocity;
             moveInput = Vector2.zero;
@@ -129,6 +181,7 @@ public class PlayerController : MonoBehaviour
         }
         if (moveInput != Vector2.zero)
         {
+            ifAttacking = false;
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
         }
         else
@@ -142,10 +195,48 @@ public class PlayerController : MonoBehaviour
             rb.velocity = currentVelocity;
         }
     }
-    public bool CanMove
+    void PlayerAnimation()
     {
-        get { return canMove; }
-        set { canMove = value; }
+        if (playerAnimator == null)
+        {
+            Debug.LogError("playerAnimator 是 null！");
+            return;
+        }
+        // 动画参数
+        playerAnimator.SetFloat("MoveX", moveInput.x);
+        playerAnimator.SetFloat("MoveY", moveInput.y);
+        playerAnimator.SetFloat("Speed", moveInput.magnitude);
+        playerAnimator.SetBool("Attack", ifAttacking);
+        playerAnimator.SetFloat("AttackSpeedMultiplier", playerValue.currentAttackSpeed);
+        playerAnimator.SetBool("AorR", AorR);
+    }
+    public void CantMove(float time, Vector2 knockbackDirection)
+    {
+        StartCoroutine(KnockbackAndStop(knockbackDirection, time));
+    }
+    IEnumerator KnockbackAndStop(Vector2 direction, float stopTime)
+    {
+        isKnockbacking = true;
+        canMove = false;
+
+        float knockbackDuration = 0.1f;
+        float knockbackPower = 30f;
+
+        rb.velocity = direction.normalized * knockbackPower;
+
+        yield return new WaitForSeconds(knockbackDuration);
+
+        isKnockbacking = false;
+        rb.velocity = Vector2.zero;
+
+        yield return new WaitForSeconds(stopTime - knockbackDuration);
+
+        canMove = true;
+    }
+    IEnumerator Stoptime(float time)
+    {
+        yield return new WaitForSeconds(time);
+        canMove = true;
     }
     public bool CanAttack
     {
@@ -162,7 +253,7 @@ public class PlayerController : MonoBehaviour
 
         if (!isDashing)
         {
-            // �Զ��ж����һ�������
+            // 自动判断最后一个方向键
             if (Input.GetKeyDown(KeyCode.A)) lastHeldDirectionAD = Vector2.left;
             else if (Input.GetKeyDown(KeyCode.D)) lastHeldDirectionAD = Vector2.right;
 
@@ -172,12 +263,12 @@ public class PlayerController : MonoBehaviour
             float x = 0f;
             float y = 0f;
 
-            // ������������
+            // 处理左右输入
             if (Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D)) x = -1;
             else if (Input.GetKey(KeyCode.D) && !Input.GetKey(KeyCode.A)) x = 1;
             else if (Input.GetKey(KeyCode.A) && Input.GetKey(KeyCode.D)) x = lastHeldDirectionAD.x;
 
-            // ������������
+            // 处理上下输入
             if (Input.GetKey(KeyCode.W) && !Input.GetKey(KeyCode.S)) y = 1;
             else if (Input.GetKey(KeyCode.S) && !Input.GetKey(KeyCode.W)) y = -1;
             else if (Input.GetKey(KeyCode.W) && Input.GetKey(KeyCode.S)) y = lastHeldDirectionWS.y;
@@ -197,213 +288,503 @@ public class PlayerController : MonoBehaviour
             FaceVector = mouseDir.normalized;
             StartCoroutine(Dash(FaceVector));
         }
+        bool isCurrentlyMoving = moveInput.magnitude > moveThreshold;
+
+        if (wasMovingLastFrame && !isCurrentlyMoving)
+        {
+            Attacking = false;
+            shouldRefreshTarget = true; //只有这时才触发目标刷新
+        }
+        wasMovingLastFrame = isCurrentlyMoving;
     }
     IEnumerator Dash(Vector2 direction)
     {
         isDashing = true;
         canDash = false;
-        isInvincible = true;
+        rb.velocity = direction *  dashSpeed;
 
-        rb.velocity = direction * dashSpeed;
 
-        // �ɼӣ�������Ч�򶯻�
+        // 可加：播放特效或动画
         yield return new WaitForSeconds(dashDuration);
-
-        isInvincible = false;
         isDashing = false;
 
-        yield return new WaitForSeconds(dashCooldown);
+        float cooldownElapsed = 0f;
+        while (cooldownElapsed < playerValue.currentDashCooldown)
+        {
+            cooldownElapsed += Time.deltaTime;
+            yield return null;
+        }
         canDash = true;
     }
+    public void ApplySlow(float slowDuration) //减速效果
+    {
+        if (isSlowed || ifclear) return;
+        StartCoroutine(SlowCoroutine(slowDuration));
+    }
 
+    IEnumerator SlowCoroutine(float slowDuration)
+    {
+        float originalMoveSpeed = walkSpeed;
+        isSlowed = true;
+        walkSpeed = reducedMoveSpeed;
+
+        yield return new WaitForSeconds(slowDuration);
+
+        walkSpeed = originalMoveSpeed;
+        isSlowed = false;
+    }
     void HandleCombat()
     {
-        mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - Face.transform.position);
-        mouseDir.z = 0;
-        if (!isTargetLocked)
+        if (!Attacking)
+        {
+            mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - Face.transform.position);
+            mouseDir.z = 0;
             Face.transform.right = mouseDir;
-        else if (currentTarget)
-            Face.transform.right = (currentTarget.position - Face.transform.position);
-
-
-        // ��������
-        playerAnimator.SetFloat("MoveX", moveInput.x);
-        playerAnimator.SetFloat("MoveY", moveInput.y);
-        playerAnimator.SetFloat("Speed", moveInput.magnitude);
-
-        if (Input.GetMouseButtonDown(0) && canAttack)
-        {
-            chargeTime = 0f;
-            canAttack = false;
         }
 
-        if (Input.GetMouseButton(0))
+        if (shouldRefreshTarget || currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
         {
-            chargeTime += Time.deltaTime;
-            if (chargeTime >= minEffectiveChargeTime)
+            GameObject newTarget = FindNearestEnemy();
+            if (newTarget != null)
             {
-                // ����ʱ����
-                walkSpeed = reducedMoveSpeed;
-            }
-            chargeTime = Mathf.Min(chargeTime, maxChargeTime); // �����������ʱ��
-        }
-
-        // �ɿ����������(����)����
-        if (Input.GetMouseButtonUp(0))
-        {
-            float chargePercent = 0;
-            bool isCharged = chargeTime >= minEffectiveChargeTime;
-            if (isCharged)
-            {
-                ifCharge = true;
-                chargePercent = chargeTime / maxChargeTime;
+                currentTarget = newTarget.transform;
             }
             else
-            {
-                ifCharge = false;
-                chargePercent = 0;
-            }
-            StartCoroutine(MeleeAttack(chargePercent));
-            ifCharge = false;
-            // ����������ָ�ԭ�����ٶ�
-            if (ifBlock) return; walkSpeed = originalMoveSpeed;
-        }
-
-        if (Input.GetMouseButtonDown(1) && canAttack)
-        {
-            StartCoroutine(RangedAttack());
-        }
-
-        if (Input.GetKeyDown(KeyCode.Q) && canSummon)
-        {
-            StartCoroutine(SummonAttack());
-        }
-    }
-
-    IEnumerator MeleeAttack(float chargePercent)
-    {
-
-        Debug.Log("�����ͷţ������ٷֱȣ�" + chargePercent);
-        // ʹ�� chargePercent ���Ʒ�Χ������
-        weapon.TrySwing(chargePercent);
-        // ����������������ЧҲ�ɸ��� chargePercent ���仯
-        yield return new WaitForSeconds(attackCooldownMelee);
-        canAttack = true;
-    }
-
-    IEnumerator RangedAttack()
-    {
-        canAttack = false;
-        Vector3 mouseDir = (Camera.main.ScreenToWorldPoint(Input.mousePosition) - transform.position).normalized;
-        GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, Quaternion.LookRotation(Vector3.forward, mouseDir));
-        knife.GetComponent<RangedKnife>().Launch(mouseDir, this.transform);
-        yield return new WaitForSeconds(attackCooldownRanged);
-    }
-
-    IEnumerator SummonAttack()
-    {
-        canSummon = false;
-        canMove = false;
-        //�ٻ�����ʱ��
-        yield return new WaitForSeconds(1f);
-        float radius = 3f;
-        Vector2 offset = Random.insideUnitCircle.normalized * radius;
-        Vector3 summonPosition = transform.position + new Vector3(offset.x, offset.y, 0);
-
-        GameObject summon = Instantiate(summonPrefab, summonPosition, Quaternion.identity);
-        canMove = true;
-
-        yield return new WaitForSeconds(summonDuration);
-
-        Destroy(summon);
-
-        yield return new WaitForSeconds(summonCooldown - summonDuration);
-
-        canSummon = true;
-    }
-
-    void HandleBlock()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            ifBlock = true;
-            shield.SetActive(true);
-            walkSpeed = reducedMoveSpeed;
-        }
-        if (Input.GetKeyUp(KeyCode.Space))
-        {
-            ifBlock = false;
-            shield.SetActive(false);
-            if (ifCharge) return; walkSpeed = originalMoveSpeed;
-        }
-    }
-
-    void HandleTargetLock()
-    {
-        if (Input.GetKeyDown(KeyCode.F))
-        {
-            if (isTargetLocked)
             {
                 currentTarget = null;
-                isTargetLocked = false;
             }
-            else
+            shouldRefreshTarget = false;
+        }
+
+        if (canAttack && moveInput.magnitude < moveThreshold)
+        {
+            if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
             {
-                GameObject nearest = FindNearestEnemy();
-                if (nearest)
+                GameObject newTarget = FindNearestEnemy();
+                if (newTarget != null)
                 {
-                    currentTarget = nearest.transform;
-                    isTargetLocked = true;
+                    currentTarget = newTarget.transform;
+                }
+                else
+                {
+                    currentTarget = null;
+                }
+            }
+
+            if (currentTarget != null)
+            {
+                float distance = Vector2.Distance(transform.position, currentTarget.position);
+                float attackRange = currentAttackMode == AttackMode.Melee ? 3f : 100f;
+
+                // **新增射线检测，确保当前目标没被墙挡住**
+                Vector2 origin = transform.position;
+                Vector2 targetPos = currentTarget.position;
+                RaycastHit2D hit = Physics2D.Raycast(origin, targetPos - origin, distance, LayerMask.GetMask("Wall"));
+
+                if (hit.collider != null)
+                {
+                    // 当前目标被墙挡住，清空目标，下次重新找
+                    currentTarget = null;
+                    return; // 不攻击，等下一帧找目标
+                }
+
+                if (distance <= attackRange)
+                {
+                    Face.transform.right = (currentTarget.position - Face.transform.position);
+
+                    if (currentAttackMode == AttackMode.Melee)
+                    {
+                        StartCoroutine(MeleeAttack());
+                    }
+                    else
+                    {
+                        StartCoroutine(RangedAttack());
+                    }
                 }
             }
         }
     }
+    IEnumerator MeleeAttack()
+    {
+        ifAttacking = true;
+        Attacking = true;
+        canAttack = false;
+        if (currentTarget == null) yield break;
 
+        Vector2 attackDir = (currentTarget.position - transform.position).normalized;
+        float moveDistance = 0.3f;
+        float moveTime = 0.1f; // 0.1秒内移动完成
+        float elapsed = 0f;
+
+        Vector2 startPos = rb.position;
+        Vector2 targetPos = startPos + attackDir * moveDistance;
+
+        // 这里用插值平滑移动角色
+        while (elapsed < moveTime)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / moveTime;
+            Vector2 newPos = Vector2.Lerp(startPos, targetPos, t);
+            rb.MovePosition(newPos);
+            yield return null;
+        }
+        rb.MovePosition(targetPos);
+
+        weapon.TrySwing(); // 近战攻击逻辑
+        playerValue.ResetLifeStealFlag();//加血
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed);
+        canAttack = true;
+        ifAttacking = false;
+    }
+
+    IEnumerator RangedAttack()
+    {
+        ifAttacking = true;
+        Attacking = true;
+        canAttack = false;
+
+        // 攻击间隔仍按速度影响
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
+
+        canAttack = true;
+        ifAttacking = false;
+    }
+    public void FireRangedWeapon()
+    {
+        if (currentTarget == null) return;
+
+        Vector2 dirToTarget = (currentTarget.position - transform.position).normalized;
+        float angle = Mathf.Atan2(dirToTarget.y, dirToTarget.x) * Mathf.Rad2Deg;
+        Quaternion rotation = Quaternion.Euler(0, 0, angle);
+
+        GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
+        knife.GetComponent<RangedKnife>().Launch(dirToTarget);
+        playerValue.ResetLifeStealFlag(); // 吸血逻辑
+    }
     GameObject FindNearestEnemy()
     {
         GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
         GameObject nearest = null;
         float minDist = Mathf.Infinity;
+
+        Vector2 origin = transform.position;
+
         foreach (GameObject e in enemies)
         {
-            float dist = Vector2.Distance(transform.position, e.transform.position);
+            Vector2 targetPos = e.transform.position;
+            float dist = Vector2.Distance(origin, targetPos);
+
             if (dist < minDist)
             {
-                nearest = e;
-                minDist = dist;
+                // 从玩家位置向敌人发射射线，检测墙壁阻挡
+                RaycastHit2D hit = Physics2D.Raycast(origin, targetPos - origin, dist, LayerMask.GetMask("Wall"));
+
+                if (hit.collider == null)
+                {
+                    // 没有碰到墙壁，说明视线通畅
+                    nearest = e;
+                    minDist = dist;
+                }
+                else
+                {
+                    //Debug.Log("wall");
+                }
             }
         }
+
         return nearest;
     }
 
-    public void TakeDamage(int amount)
+    public void TakeDamage(int amount, GameObject enemy)
     {
+        if (TryTriggerShield(enemy)) return; // 无敌护盾
         if (isInvincible) return;
 
-        currentHealth -= amount;
+        // [1] 临时护盾吸收伤害
+        if (PlayerValue.currentShield > 0)
+        {
+            int absorbed = Mathf.Min(PlayerValue.currentShield, amount);
+            PlayerValue.currentShield -= absorbed;
+            amount -= absorbed;
+
+            hurtUI?.UpdateHealthBar(PlayerValue.currentShield, currentMaxShield);//更新护盾量
+            StartCoroutine(HurtRoutineShield());
+
+            if (amount <= 0) return; // 全部伤害被护盾吸收
+        }
+
+        // [2] 预测血量是否会低于 5%，如果是，尝试触发低血护盾
+        int predictedDamage = Mathf.Max(1, amount - PlayerValue.currentDefense);
+        int predictedHP = PlayerValue.currentHP - predictedDamage;
+        float predictedPercent = (float)predictedHP / playerValue.currentMaxHP;
+
+        if (predictedPercent <= 0.05f)
+        {
+            TryTriggerLowHpShield(); // 注意此处调用在实际扣血前
+            if (PlayerValue.currentShield > 0)
+            {
+                int absorbed = Mathf.Min(PlayerValue.currentShield, predictedDamage);
+                PlayerValue.currentShield -= absorbed;
+                predictedDamage -= absorbed;
+                if (predictedDamage <= 0) return; // 护盾吸收完全部伤害后退出
+            }
+        }
+
+        // [3] 正式扣血
+        PlayerValue.currentHP -= predictedDamage;
+
+        // [4] 反弹伤害
+        if (CardValue.ThornsLevel > 0 && enemy != null)
+        {
+            float reflectPercent = 0f;
+            switch (CardValue.ThornsLevel)
+            {
+                case 1: reflectPercent = 0.2f; break;
+                case 2: reflectPercent = 0.4f; break;
+                case 3: reflectPercent = 0.6f; break;
+            }
+
+            int reflectDamage = Mathf.Max(1, Mathf.RoundToInt(predictedDamage * reflectPercent));
+
+            if (enemy.TryGetComponent<IHurtable>(out var hurtable))
+            {
+                hurtable.TakeDamage(reflectDamage, false);
+            }
+        }
+
         StartCoroutine(HurtRoutine());
-        if (currentHealth <= 0) Die();
+
+        if (PlayerValue.currentHP <= 0)
+            StartCoroutine(Die());
+    }
+    private void TryTriggerLowHpShield()
+    {
+        if (PlayerValue. hasTriggeredLowHpShield) return;
+        float shieldPercent = 0f;
+        switch (CardValue.TriggerLowHpShield)
+        {
+            case 1: shieldPercent = 0.3f; break;
+            case 2: shieldPercent = 0.6f; break;
+            case 3: shieldPercent = 1.0f; break;
+            default: return; // 未解锁不触发
+        }
+
+        currentMaxShield = PlayerValue.currentShield = Mathf.RoundToInt(playerValue.baseMaxHP * shieldPercent);
+        PlayerValue.hasTriggeredLowHpShield = true;
+        InitShieldBar();
+
+        // TODO: 加入护盾启动动画/音效/UI提示
+        Debug.Log($"触发低血护盾，获得 {PlayerValue.currentShield} 点护盾值");
+    }
+    void InitShieldBar()
+    {
+        GameObject barPrefab = Resources.Load<GameObject>("ShieldBar");
+        if (barPrefab != null)
+        {
+            bar = Instantiate(barPrefab, transform);
+            bar.transform.localPosition = new Vector3(0, 1.5f, 0); // 调整血条高度
+            hurtUI = bar.GetComponent<HurtUI>();
+            if (hurtUI != null)
+                hurtUI.UpdateHealthBar(PlayerValue.currentShield, currentMaxShield);
+        }
     }
     public bool IsInvincible()
     {
         return isInvincible;
     }
-    IEnumerator HurtRoutine()
+    private bool TryTriggerShield(GameObject enemy)
     {
-        canMove = false;
+        float chance = 0f;
+
+        switch (CardValue.ThornsShieldLevel)
+        {
+            case 1: chance = 0.10f; break;
+            case 2: chance = 0.15f; break;
+            case 3: chance = 0.30f; break;
+        }
+
+        // 只有原始 chance > 0 才考虑 Boss 加成
+        if (chance > 0f && enemy != null && enemy.CompareTag("Boss"))
+        {
+            chance += 0.5f;
+        }
+
+        if (chance <= 0f) return false;
+
+        // 随机判定是否触发
+        if (Random.value < chance)
+        {
+            StartCoroutine(TriggerShield());
+            return true;
+        }
+
+        return false;
+    }
+    private IEnumerator TriggerShield()
+    {
         isInvincible = true;
-        rb.velocity = Vector2.zero;
-        // TODO: Play hurt animation + show red outline
-        yield return new WaitForSeconds(0.5f); // �޵�֡ʱ��
-        canMove = true;
+        // TODO：可以加上护盾特效，比如开启护罩粒子效果
+        Debug.Log("haha");
+        yield return new WaitForSeconds(0.5f); // 无敌持续时间
         isInvincible = false;
     }
 
-    void Die()
+    IEnumerator HurtRoutine()
     {
-        // TODO: Play death animation, disable controls, etc.
+        //CantMove(0.5f);
+        isInvincible = true;
+        rb.velocity = Vector2.zero;
+        // 受伤动画
+        Color originalColor = spriteRenderer.color;
+        // 闪红色
+        spriteRenderer.color = Color.red;
+        // 停顿一帧（或更久）
+        yield return new WaitForSeconds(0.3f);
+        // 恢复原色
+        spriteRenderer.color = originalColor;
+        yield return new WaitForSeconds(0.5f); // 无敌帧时长
+        isInvincible = false;
+    }
+    IEnumerator HurtRoutineShield()
+    {
+        //CantMove(0.5f);
+        isInvincible = true;
+        rb.velocity = Vector2.zero;
+        // 受伤动画
+        Color originalColor = spriteRenderer.color;
+        // 闪红色
+        spriteRenderer.color = Color.blue;
+        // 停顿一帧（或更久）
+        yield return new WaitForSeconds(0.3f);
+        // 恢复原色
+        spriteRenderer.color = originalColor;
+        yield return new WaitForSeconds(0.3f); // 无敌帧时长
+        isInvincible = false;
+    }
+    IEnumerator Die()
+    {
+        //死亡动画
+        yield return new WaitForSeconds(1f);
         Debug.Log("Player Died");
-        //gameObject.SetActive(false);
+    }
+    ///////////////////////////Card///////////////////////////////////////////////////////
+    void TrySummonFireballs()
+    {
+        StartCoroutine(SummonFireballs());
+        Ifball = true;
+        isCoolingDown = true;
+        fireballCooldownTimer = 0f;
+        // 每次触发后，随机冷却时间（3 到 6 秒之间）
+        fireballCooldownTime = Random.Range(3f, 6f);
+    }
+    IEnumerator SummonFireballs()
+    {
+        // 找出屏幕内的敌人
+        GameObject[] allEnemies = GameObject.FindGameObjectsWithTag("Enemy");
+        List<Transform> visibleEnemies = new List<Transform>();
+
+        foreach (var enemy in allEnemies)
+        {
+            Vector3 screenPos = mainCamera.WorldToScreenPoint(enemy.transform.position);
+
+            // 判断是否在屏幕内
+            if (screenPos.z > 0 && screenPos.x >= 0 && screenPos.x <= Screen.width &&
+                screenPos.y >= 0 && screenPos.y <= Screen.height)
+            {
+                visibleEnemies.Add(enemy.transform);
+            }
+        }
+        for (int i = 0; i < CardValue.fireballLevel; i++)
+        {
+            Vector3 targetWorldPos;
+
+            if (visibleEnemies.Count > 0)
+            {
+                // 有敌人：随机选择一个敌人位置
+                Transform target = visibleEnemies[Random.Range(0, visibleEnemies.Count)];
+                targetWorldPos = target.position;
+            }
+            else
+            {
+                // 没有敌人：使用屏幕中心附近随机点
+                Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
+                Vector2 randomOffset = Random.insideUnitCircle * 100f;
+                Vector2 screenPos = screenCenter + randomOffset;
+                targetWorldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
+            }
+
+            targetWorldPos.z = 0; // 保持在2D层上
+
+            // 生成位置：目标点上方偏右
+            Vector3 spawnPos = targetWorldPos + new Vector3(2f, 8f, 0f);
+
+            GameObject fireball = Instantiate(fireballPrefab, spawnPos, Quaternion.identity);
+            fireball.GetComponent<Fireball>().Init(targetWorldPos);
+            yield return new WaitForSeconds(0.2f);
+        }
+        //yield return null;
+
+    }
+    void TryCastLightningBeam()
+    {
+        GameObject[] allEnemies = GameObject.FindGameObjectsWithTag("Enemy");
+
+        // 左右方向分别检测
+        Vector2[] directions = { Vector2.left, Vector2.right };
+        int[] hitCounts = new int[2];
+        Vector3[] origins = new Vector3[2]; // 用于记录每个方向下，命中最多敌人的起点（只保存位置）
+
+        for (int i = 0; i < 2; i++)
+        {
+            foreach (var enemy in allEnemies)
+            {
+                Vector3 origin = enemy.transform.position;
+                RaycastHit2D[] hits = Physics2D.RaycastAll(origin, directions[i], 100f);
+                int count = 0;
+                foreach (var hit in hits)
+                {
+                    if (hit.collider != null && hit.collider.CompareTag("Enemy"))
+                    {
+                        count++;
+                    }
+                }
+
+                if (count > hitCounts[i])
+                {
+                    hitCounts[i] = count;
+                    origins[i] = origin; // 记录该起点（含Y值）
+                }
+            }
+        }
+
+        // 决定方向
+        int chosenDirIndex = hitCounts[0] > hitCounts[1] ? 0 :
+                             hitCounts[0] < hitCounts[1] ? 1 :
+                             Random.Range(0, 2); // 相等时随机
+
+        Vector2 chosenDir = directions[chosenDirIndex];
+        Vector3 bestHitOrigin = origins[chosenDirIndex];
+
+        // 获取屏幕中心 X 坐标
+        Vector3 screenCenterWorld = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
+        screenCenterWorld.z = 0f;
+
+        // 把 Y 设置为命中最多敌人的射线起点 Y
+        screenCenterWorld.y = bestHitOrigin.y;
+
+        SpawnLightningBeam(screenCenterWorld, chosenDir);
+        // 设置冷却
+        isLightningCoolingDown = true;
+        lightningCooldownTimer = 0f;
+        lightningCooldownTime = Random.Range(3f, 6f);
+    }
+
+    void SpawnLightningBeam(Vector3 spawnPos, Vector2 direction)
+    {
+        GameObject beam = Instantiate(lightningBeamPrefab, spawnPos, Quaternion.identity);
+
+        // 设置方向
+        beam.transform.right = direction.normalized;
     }
 
 }
