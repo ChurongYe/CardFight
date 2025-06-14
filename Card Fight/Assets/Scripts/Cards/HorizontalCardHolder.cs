@@ -30,13 +30,25 @@ public class HorizontalCardHolder : MonoBehaviour
 
     void Start()
     {
-        cardPool = database.GetShuffledNormalCards();
+        // 原始一套基础卡牌
+        List<CardData> baseCards = database.GetShuffledNormalCards();
+
+        // 乘以3倍
+        cardPool = new List<CardData>();
+        for (int i = 0; i < 3; i++)
+        {
+            cardPool.AddRange(baseCards);
+        }
+
+        // 洗牌
+        Shuffle(cardPool);
+
         for (int i = 0; i < transform .childCount; i++)
         {
             Card slot = transform.GetChild(i).GetComponentInChildren<Card>();
             slots.Add(slot);
 
-            if (i < 3)
+            if (i < 9)
                 slot.SetLocked(false); // 前3个可用
             else
                 slot.SetLocked(true);  // 后5个锁定
@@ -81,6 +93,17 @@ public class HorizontalCardHolder : MonoBehaviour
 
         }
     }
+    void Shuffle<T>(List<T> list)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            int rand = Random.Range(i, list.Count);
+            T temp = list[i];
+            list[i] = list[rand];
+            list[rand] = temp;
+        }
+    }
+
     public void SortCardVisuals()
     {
         if (isSorting) return; // 防止重复调用
@@ -90,47 +113,53 @@ public class HorizontalCardHolder : MonoBehaviour
     private IEnumerator SortRoutine()
     {
         isSorting = true;
-        //先同步 cards 列表顺序
+
+        // 同步最新顺序
         cards = transform.Cast<Transform>()
             .Select(t => t.GetComponentInChildren<Card>())
             .Where(c => c != null)
             .ToList();
+
         var unlockedCards = cards.Where(c => !c.isLocked && c.cardVisual != null).ToList();
         var sortedCards = unlockedCards
             .OrderBy(c => c.cardVisual.data.suit)
             .ThenBy(c => c.cardVisual.data.number)
             .ToList();
 
-        HashSet<Card> alreadySwapped = new HashSet<Card>(); //新增集合，记录已处理卡牌
+        bool hasSwapped;
 
-        for (int i = 0; i < sortedCards.Count; i++)
+        do
         {
-            var targetCard = sortedCards[i];
-            var currentCard = unlockedCards[i];
+            hasSwapped = false;
 
-            //已经处理过，不再重复交换
-            if (targetCard == currentCard  || alreadySwapped.Contains(currentCard))
-                continue;
-
-            int targetIndex = cards.IndexOf(targetCard);
-            int currentIndex = cards.IndexOf(currentCard);
-
-            if (targetIndex == -1 || currentIndex == -1)
+            for (int i = 0; i < sortedCards.Count; i++)
             {
-                Debug.LogWarning("卡牌不在 cards 列表中");
-                continue;
+                var targetCard = sortedCards[i];
+                var currentCard = unlockedCards[i];
+
+                if (targetCard == currentCard)
+                    continue;
+
+                int targetIndex = cards.IndexOf(targetCard);
+                int currentIndex = cards.IndexOf(currentCard);
+
+                if (targetIndex == -1 || currentIndex == -1)
+                    continue;
+
+                SwapCardsPositions(cards[currentIndex], cards[targetIndex]);
+
+                // 更新 cards 顺序
+                cards[currentIndex] = targetCard;
+                cards[targetIndex] = currentCard;
+
+                // 更新 unlockedCards 同步下次检查用
+                unlockedCards = cards.Where(c => !c.isLocked && c.cardVisual != null).ToList();
+
+                hasSwapped = true;
+                yield return new WaitForSeconds(0.05f); // 每次交换暂停一点点
             }
-            Debug.Log($"排序：{currentCard.name} <--> {targetCard.name}");
-            SwapCardsPositions(cards[currentIndex], cards[targetIndex]);
 
-            // 同步 cards 列表
-            cards[currentIndex] = targetCard;
-            cards[targetIndex] = currentCard;
-
-            //标记已交换
-            alreadySwapped.Add(targetCard);
-            //alreadySwapped.Add(currentCard);
-        }
+        } while (hasSwapped);
 
         yield return new WaitForSeconds(0.25f);
         isSorting = false;
