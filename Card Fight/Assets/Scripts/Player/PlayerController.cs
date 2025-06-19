@@ -230,6 +230,7 @@ public class PlayerController : MonoBehaviour
         playerAnimator.SetFloat("Speed", moveInput.magnitude);
         // Idle 朝向控制（如果 idle 没有移动时，使用最后方向）
         playerAnimator.SetFloat("IdleDirection", lastHorizontal);
+        playerAnimator.SetBool("IfMelee", currentAttackMode == AttackMode.Melee);
         playerAnimator.SetBool("Attack", ifAttacking);
         playerAnimator.SetFloat("AttackX", currentAttackDirection == AttackDirection.Left ? -1 :
                                    currentAttackDirection == AttackDirection.Right ? 1 : 0);
