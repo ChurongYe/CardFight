@@ -6,7 +6,7 @@ AnimationClip:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: R1
+  m_Name: IdleL
   serializedVersion: 7
   m_Legacy: 0
   m_Compressed: 0
@@ -21,17 +21,13 @@ AnimationClip:
   - serializedVersion: 2
     curve:
     - time: 0
-      value: {fileID: 21300000, guid: 038d0b7337c870d479bba0883a27e701, type: 3}
-    - time: 0.16666667
-      value: {fileID: 21300000, guid: 52b22d407014fad44bf10e7de670adee, type: 3}
-    - time: 0.33333334
-      value: {fileID: 21300000, guid: c0f1208b38c071c45afd95a8d3f9b5d1, type: 3}
-    - time: 0.5
-      value: {fileID: 21300000, guid: d47c6b1f2547b9b469d2e2c6ad2b9edc, type: 3}
-    - time: 0.6666667
-      value: {fileID: 21300000, guid: 6d8a2f6983af65a4ba3ae83208c46bed, type: 3}
-    - time: 0.8333333
-      value: {fileID: 21300000, guid: 457dcc7be56f407488862d5dd7ac9e11, type: 3}
+      value: {fileID: 21300000, guid: f2d371056b9ca0147a56e9c8aa2495f1, type: 3}
+    - time: 0.21666667
+      value: {fileID: 21300000, guid: b71931d7c6fb25546b5396c4949c4246, type: 3}
+    - time: 0.43333334
+      value: {fileID: 21300000, guid: b71931d7c6fb25546b5396c4949c4246, type: 3}
+    - time: 0.55
+      value: {fileID: 21300000, guid: f2d371056b9ca0147a56e9c8aa2495f1, type: 3}
     attribute: m_Sprite
     path: 
     classID: 212
@@ -54,18 +50,16 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     pptrCurveMapping:
-    - {fileID: 21300000, guid: 038d0b7337c870d479bba0883a27e701, type: 3}
-    - {fileID: 21300000, guid: 52b22d407014fad44bf10e7de670adee, type: 3}
-    - {fileID: 21300000, guid: c0f1208b38c071c45afd95a8d3f9b5d1, type: 3}
-    - {fileID: 21300000, guid: d47c6b1f2547b9b469d2e2c6ad2b9edc, type: 3}
-    - {fileID: 21300000, guid: 6d8a2f6983af65a4ba3ae83208c46bed, type: 3}
-    - {fileID: 21300000, guid: 457dcc7be56f407488862d5dd7ac9e11, type: 3}
+    - {fileID: 21300000, guid: f2d371056b9ca0147a56e9c8aa2495f1, type: 3}
+    - {fileID: 21300000, guid: b71931d7c6fb25546b5396c4949c4246, type: 3}
+    - {fileID: 21300000, guid: b71931d7c6fb25546b5396c4949c4246, type: 3}
+    - {fileID: 21300000, guid: f2d371056b9ca0147a56e9c8aa2495f1, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
-    m_StopTime: 0.84999996
+    m_StopTime: 0.56666666
     m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
@@ -84,11 +78,4 @@ AnimationClip:
   m_EulerEditorCurves: []
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
-  m_Events:
-  - time: 0.35
-    functionName: FireRangedWeapon
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
+  m_Events: []

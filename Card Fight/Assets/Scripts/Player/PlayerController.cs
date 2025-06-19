@@ -4,15 +4,27 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
+using static PlayerController;
 using static Unity.Collections.AllocatorManager;
 using static Unity.VisualScripting.Member;
 
+public enum AttackDirection
+{
+    Up,
+    Down,
+    Left,
+    Right
+}
 public class PlayerController : MonoBehaviour
 {
     [SerializeField]
     private Core.PlayerValue playerValue;
     public enum AttackMode { Melee, Ranged }
     public static AttackMode currentAttackMode = AttackMode.Melee;
+    public SkillEffectConfig effectConfig;
+    public Transform meleeEffectPoint;
+    public Transform rangedEffectPoint;
+
     [Header("Movement")]
     private GameObject Face;
 
@@ -28,13 +40,14 @@ public class PlayerController : MonoBehaviour
     private Vector3 mouseDir;
 
     private Vector2 currentVelocity;
-    private Vector2 moveInput;
+    public Vector2 moveInput;
     private Rigidbody2D rb;
     private bool canMove = true;
 
     private bool isDashing = false;
     private bool canDash = true;
     private bool isKnockbacking = false;
+    private float lastHorizontal = 1f;
 
     [Header("Combat")]
     public Weapon weapon;
@@ -50,6 +63,7 @@ public class PlayerController : MonoBehaviour
     private bool Attacking = false;
     private bool wasMovingLastFrame = false;
     private bool shouldRefreshTarget = false;
+    public AttackDirection currentAttackDirection;
 
     [Header("Health")]
     //private int playerHealth = 10;//*
@@ -97,6 +111,10 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if(currentAttackMode != AttackMode.Melee)
+        {
+            weapon.DisableAllHitboxesImmediate(); //避免转变碰撞体没有消失
+        }
         if (Input.GetKeyDown(KeyCode.X))
         {
             currentAttackMode = currentAttackMode == AttackMode.Melee ? AttackMode.Ranged : AttackMode.Melee;
@@ -179,6 +197,10 @@ public class PlayerController : MonoBehaviour
             moveInput = Vector2.zero;
             return;
         }
+        if (moveInput.x != 0)
+        {
+            lastHorizontal = Mathf.Sign(moveInput.x); // 1：向右，-1：向左
+        }
         if (moveInput != Vector2.zero)
         {
             ifAttacking = false;
@@ -206,9 +228,48 @@ public class PlayerController : MonoBehaviour
         playerAnimator.SetFloat("MoveX", moveInput.x);
         playerAnimator.SetFloat("MoveY", moveInput.y);
         playerAnimator.SetFloat("Speed", moveInput.magnitude);
+        // Idle 朝向控制（如果 idle 没有移动时，使用最后方向）
+        playerAnimator.SetFloat("IdleDirection", lastHorizontal);
         playerAnimator.SetBool("Attack", ifAttacking);
+        playerAnimator.SetFloat("AttackX", currentAttackDirection == AttackDirection.Left ? -1 :
+                                   currentAttackDirection == AttackDirection.Right ? 1 : 0);
+        playerAnimator.SetFloat("AttackY", currentAttackDirection == AttackDirection.Up ? 1 :
+                                     currentAttackDirection == AttackDirection.Down ? -1 : 0);
         playerAnimator.SetFloat("AttackSpeedMultiplier", playerValue.currentAttackSpeed);
         playerAnimator.SetBool("AorR", AorR);
+    }
+    // 动画事件：通用触发
+    public void PlayAttackEffect()
+    {
+        string effectKey = GetCurrentEffectKey();
+        Transform spawnPoint = (currentAttackMode == AttackMode.Melee) ? meleeEffectPoint : rangedEffectPoint;
+
+        GameObject prefab = effectConfig.GetEffect(effectKey);
+        if (prefab != null)
+        {
+            Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
+            AttackEffect effect = prefab.GetComponent<AttackEffect>();
+            if (effect != null)
+            {
+                effect.SetWeapon(GetComponent<Weapon>());
+                effect.SetDirection(currentAttackDirection);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("特效未找到：" + effectKey);
+        }
+    }
+    // 组合出特效 key
+    private string GetCurrentEffectKey()
+    {
+        string type = currentAttackMode == AttackMode.Melee
+            ? (CardValue.FireLevel == 0 ? "Melee_Normal" : "Melee_Fire")
+            : (CardValue.AddLighting ? "Ranged_Electric" : "Ranged_Normal");
+
+        string direction = currentAttackDirection.ToString(); // Up / Down / Left / Right
+
+        return $"{type}_{direction}";
     }
     public void CantMove(float time, Vector2 knockbackDirection)
     {
@@ -374,7 +435,7 @@ public class PlayerController : MonoBehaviour
             if (currentTarget != null)
             {
                 float distance = Vector2.Distance(transform.position, currentTarget.position);
-                float attackRange = currentAttackMode == AttackMode.Melee ? 3f : 100f;
+                float attackRange = currentAttackMode == AttackMode.Melee ? 5f : 100f;
 
                 // **新增射线检测，确保当前目标没被墙挡住**
                 Vector2 origin = transform.position;
@@ -411,30 +472,35 @@ public class PlayerController : MonoBehaviour
         canAttack = false;
         if (currentTarget == null) yield break;
 
+        //方向判断
+        AttackDirection direction = GetAttackDirection(currentTarget.position);
+        currentAttackDirection = direction; // 用于动画事件获取方向
+
+        //前冲
         Vector2 attackDir = (currentTarget.position - transform.position).normalized;
-        float moveDistance = 0.3f;
-        float moveTime = 0.1f; // 0.1秒内移动完成
-        float elapsed = 0f;
-
         Vector2 startPos = rb.position;
-        Vector2 targetPos = startPos + attackDir * moveDistance;
-
-        // 这里用插值平滑移动角色
-        while (elapsed < moveTime)
+        Vector2 targetPos = startPos + attackDir * 0.3f;
+        float elapsed = 0f;
+        while (elapsed < 0.1f)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / moveTime;
-            Vector2 newPos = Vector2.Lerp(startPos, targetPos, t);
-            rb.MovePosition(newPos);
+            rb.MovePosition(Vector2.Lerp(startPos, targetPos, elapsed / 0.1f));
             yield return null;
         }
-        rb.MovePosition(targetPos);
 
-        weapon.TrySwing(); // 近战攻击逻辑
-        playerValue.ResetLifeStealFlag();//加血
+        playerValue.ResetLifeStealFlag();
         yield return new WaitForSeconds(playerValue.currentAttackSpeed);
+
         canAttack = true;
         ifAttacking = false;
+    }
+    private AttackDirection GetAttackDirection(Vector2 targetPos)
+    {
+        Vector2 dir = targetPos - (Vector2)transform.position;
+        if (Mathf.Abs(dir.x) > Mathf.Abs(dir.y))
+            return dir.x > 0 ? AttackDirection.Right : AttackDirection.Left;
+        else
+            return dir.y > 0 ? AttackDirection.Up : AttackDirection.Down;
     }
 
     IEnumerator RangedAttack()
@@ -443,7 +509,12 @@ public class PlayerController : MonoBehaviour
         Attacking = true;
         canAttack = false;
 
-        // 攻击间隔仍按速度影响
+        if (currentTarget == null) yield break;
+
+        // 方向判断
+        AttackDirection direction = GetAttackDirection(currentTarget.position);
+        currentAttackDirection = direction;
+
         yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
 
         canAttack = true;

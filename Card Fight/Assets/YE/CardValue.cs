@@ -83,7 +83,6 @@ namespace Core
 
         public static AttackType attackType = AttackType.NormalMelee | AttackType.NormalRanged;
         public static int FireLevel = 0; // 默认为0级，最大3级
-        public static int PlayerFireLevel = 0; // 默认为0级，最大3级
         public void AttackFire()
         {
             if (FireLevel == 0)
@@ -97,6 +96,7 @@ namespace Core
                 FireLevel++;
         }//火1
         public static bool PlayerFire = false ;
+        public static int PlayerFireLevel = 0; // 默认为0级，最大3级
         public void AttackPlayerFire()
         {
             if (FireLevel == 0) return;

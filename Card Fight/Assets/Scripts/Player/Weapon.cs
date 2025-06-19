@@ -1,82 +1,77 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static PlayerController;
 
 public class Weapon : MonoBehaviour
 {
-    [SerializeField]
-    private Core.PlayerValue playerValue;
-    public Transform weaponPivot;
-    public GameObject weaponSprite;
-    private GameObject Player;
-    private GameObject Face;
-    private float swingAngle = 180f;
-    public float swingDuration ;
-    private float comboInterval = 2f;
-
-    private bool isSwinging = false;
-    private float lastClickTime = -1f;
-    private bool isLeftToRight = true;
+    [SerializeField] private GameObject Up;
+    [SerializeField] private GameObject Down;
+    [SerializeField] private GameObject Left;
+    [SerializeField] private GameObject Right;
+    private Collider2D hitboxUp;
+    private Collider2D hitboxDown;
+    private Collider2D hitboxLeft;
+    private Collider2D hitboxRight;
 
     private void Start()
     {
-        playerValue = FindObjectOfType<Core.PlayerValue>();
-        //playerValue.OnAttackSpeedChanged += speed => swingDuration = speed;
-        weaponSprite = GameObject.FindWithTag("weaponSprite");
-        weaponSprite.SetActive(false );
-        Face = GameObject.FindWithTag("Face");
-        Player = GameObject.FindWithTag("Player");
-        weaponPivot.transform.parent = Player.transform;
+        hitboxUp = Up.GetComponent<Collider2D>();
+        hitboxDown = Down.GetComponent<Collider2D>();
+        hitboxLeft = Left.GetComponent<Collider2D>();
+        hitboxRight = Right.GetComponent<Collider2D>();
+        StartCoroutine(DisableAllHitboxes());
     }
-    private void Update()
+    // 动画事件：关闭全部
+    IEnumerator DisableAllHitboxes()
     {
-        swingDuration = playerValue.currentAttackSpeed;
+        yield return null;
+        hitboxUp.enabled = false;
+        hitboxDown.enabled = false;
+        hitboxLeft.enabled = false;
+        hitboxRight.enabled = false;
     }
-    public void TrySwing()
+
+    // 动画事件：开启当前方向碰撞体
+    public void EnableDirectionHitbox(int direction)
     {
-        if (!isSwinging)
+
+        DisableAllHitboxesImmediate();
+
+        switch ((AttackDirection)direction)
         {
-            float timeSinceLastClick = Time.time - lastClickTime;
+            case AttackDirection.Up:
+                hitboxUp.enabled = true;
+                Debug.Log("启用 hitboxUp，状态：" + hitboxUp.enabled);
+                break;
 
-            if (timeSinceLastClick <= comboInterval)
-                isLeftToRight = !isLeftToRight;
-            else
-                isLeftToRight = true;
+            case AttackDirection.Down:
+                hitboxDown.enabled = true;
+                Debug.Log("启用 hitboxDown，状态：" + hitboxDown.enabled);
+                break;
 
-            lastClickTime = Time.time;
-            StartCoroutine(SwingWeapon());
+            case AttackDirection.Left:
+                hitboxLeft.enabled = true;
+                Debug.Log("启用 hitboxLeft，状态：" + hitboxLeft.enabled);
+                break;
+
+            case AttackDirection.Right:
+                hitboxRight.enabled = true;
+                Debug.Log("启用 hitboxRight，状态：" + hitboxRight.enabled);
+                break;
+
+            default:
+                Debug.LogWarning("未知方向：" + direction);
+                break;
         }
     }
-
-    IEnumerator SwingWeapon()
+    public void DisableAllHitboxesImmediate()
     {
-        weaponSprite.SetActive(true);
-        isSwinging = true;
-
-        float timer = 0f;
-
-        Vector3 facingDir = Face.transform.right;
-        float baseAngle = Mathf.Atan2(facingDir.y, facingDir.x) * Mathf.Rad2Deg - 75f;
-
-        float startZ = baseAngle + (isLeftToRight ? -swingAngle / 2 : swingAngle / 2);
-        float endZ = baseAngle + (isLeftToRight ? swingAngle / 2 : -swingAngle / 2);
-
-        while (timer < playerValue.currentAttackSpeed)
-        {
-            timer += Time.deltaTime;
-            float t = Mathf.Clamp01(timer / playerValue.currentAttackSpeed);
-
-            float easedT = Mathf.Sin(t * Mathf.PI * 0.5f); 
-            float angle = Mathf.Lerp(startZ, endZ, easedT);
-
-            weaponPivot.rotation = Quaternion.Euler(0f, 0f, angle);
-            yield return null;
-        }
-
-        // 挥完后保持一段时间
-        yield return new WaitForSeconds(0.1f); // 停顿时间可调
-
-        isSwinging = false;
-        weaponSprite.SetActive(false);
+        hitboxUp.enabled = false;
+        hitboxDown.enabled = false;
+        hitboxLeft.enabled = false;
+        hitboxRight.enabled = false;
     }
+
+
 }
