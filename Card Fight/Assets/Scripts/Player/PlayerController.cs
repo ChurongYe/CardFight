@@ -58,8 +58,8 @@ public class PlayerController : MonoBehaviour
     public float impactForce = 1f;
     public bool ifclear = false; //净化
 
-    private bool canAttack = true;
-    private Transform currentTarget;
+    [SerializeField] private bool canAttack = true;
+    [SerializeField] private Transform currentTarget;
     private bool Attacking = false;
     private bool wasMovingLastFrame = false;
     private bool shouldRefreshTarget = false;
@@ -204,6 +204,7 @@ public class PlayerController : MonoBehaviour
         if (moveInput != Vector2.zero)
         {
             ifAttacking = false;
+            canAttack = true;//
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
         }
         else
@@ -516,7 +517,7 @@ public class PlayerController : MonoBehaviour
         AttackDirection direction = GetAttackDirection(currentTarget.position);
         currentAttackDirection = direction;
 
-        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 2f);
+        yield return new WaitForSeconds(playerValue.currentAttackSpeed * 3f);
 
         canAttack = true;
         ifAttacking = false;
@@ -525,11 +526,15 @@ public class PlayerController : MonoBehaviour
     {
         if (currentTarget == null) return;
 
-        Vector2 dirToTarget = (currentTarget.position - transform.position).normalized;
+        // 向上偏移生成位置（例如：从角色头部或手部发射）
+        Vector3 spawnPos = transform.position + Vector3.up * 0.5f;
+
+        // 从新位置指向目标的方向
+        Vector2 dirToTarget = ((Vector2)currentTarget.position - (Vector2)spawnPos).normalized;
         float angle = Mathf.Atan2(dirToTarget.y, dirToTarget.x) * Mathf.Rad2Deg;
         Quaternion rotation = Quaternion.Euler(0, 0, angle);
 
-        GameObject knife = Instantiate(rangedWeaponPrefab, transform.position, rotation);
+        GameObject knife = Instantiate(rangedWeaponPrefab, spawnPos, rotation);
         knife.GetComponent<RangedKnife>().Launch(dirToTarget);
         playerValue.ResetLifeStealFlag(); // 吸血逻辑
     }

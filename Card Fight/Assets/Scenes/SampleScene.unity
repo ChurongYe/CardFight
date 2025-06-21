@@ -6880,7 +6880,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &904221015
 Transform:
   m_ObjectHideFlags: 0
@@ -16869,7 +16869,7 @@ MonoBehaviour:
   baseDefense: 2
   baseAttack: 10
   baseCritRate: 0.05
-  baseAttackSpeed: 0.8
+  baseAttackSpeed: 1
   currentMoveSpeed: 0
   currentDashCooldown: 0
   currentMaxHP: 0
@@ -17273,6 +17273,8 @@ MonoBehaviour:
   rangedWeaponPrefab: {fileID: 3137739768782175085, guid: a11faa68692f7194b9d247ed8c245555, type: 3}
   impactForce: 1
   ifclear: 0
+  canAttack: 1
+  currentTarget: {fileID: 0}
   currentAttackDirection: 0
   HealthfillImage: {fileID: 1315955432}
   PlayerFire: {fileID: 36807187}
