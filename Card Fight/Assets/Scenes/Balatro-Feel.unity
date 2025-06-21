@@ -607,6 +607,7 @@ MonoBehaviour:
   selectedCard: {fileID: 0}
   hoveredCard: {fileID: 0}
   slotPrefab: {fileID: 3655645598659960977, guid: e99c361e7acdd41f0b904fef6be48fea, type: 3}
+  handAreaRect: {fileID: 0}
   cards: []
   tweenCardReturn: 1
   database: {fileID: 0}
@@ -1686,6 +1687,7 @@ MonoBehaviour:
   selectedCard: {fileID: 0}
   hoveredCard: {fileID: 0}
   slotPrefab: {fileID: 3655645598659960977, guid: e99c361e7acdd41f0b904fef6be48fea, type: 3}
+  handAreaRect: {fileID: 0}
   cards: []
   tweenCardReturn: 0
   database: {fileID: 1019572720}
@@ -1791,6 +1793,7 @@ MonoBehaviour:
   selectedCard: {fileID: 0}
   hoveredCard: {fileID: 0}
   slotPrefab: {fileID: 3655645598659960977, guid: e99c361e7acdd41f0b904fef6be48fea, type: 3}
+  handAreaRect: {fileID: 0}
   cards: []
   tweenCardReturn: 1
   database: {fileID: 0}
@@ -2732,7 +2735,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1567928525
 RectTransform:
   m_ObjectHideFlags: 0

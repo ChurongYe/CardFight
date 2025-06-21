@@ -8,6 +8,8 @@ using UnityEngine.UI;
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
 using UnityEngine.WSA;
 using Unity.VisualScripting;
+using System.Linq;
+using DG.Tweening;
 
 public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerUpHandler, IPointerDownHandler
 {
@@ -110,8 +112,22 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         {
             Vector2 targetPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition) - offset;
             Vector2 direction = (targetPosition - (Vector2)transform.position).normalized;
-            Vector2 velocity = direction * Mathf.Min(moveSpeedLimit, Vector2.Distance(transform.position, targetPosition) / Time.deltaTime);
-            transform.Translate(velocity * Time.deltaTime);
+            float distance = Vector2.Distance(transform.position, targetPosition);
+            Vector2 velocity = direction * Mathf.Min(moveSpeedLimit, distance / Time.deltaTime);
+            Vector2 delta = velocity * Time.deltaTime;
+
+            // 当前卡牌移动
+            transform.Translate(delta);
+
+            // 其他被选中的卡牌也一起移动
+            var holder = FindObjectOfType<HorizontalCardHolder>();
+            foreach (Card card in holder.GetSelectedCards())
+            {
+                if (card != this)
+                {
+                    card.transform.Translate(delta);
+                }
+            }
         }
     }
     /// <summary>
@@ -152,27 +168,95 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (isLocked) return;
+
         BeginDragEvent.Invoke(this);
         Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         offset = mousePosition - (Vector2)transform.position;
         isDragging = true;
-        canvas.GetComponent<GraphicRaycaster>().enabled = false;
-        imageComponent.raycastTarget = false;
+
+        //如果未被选中，则强制选中（让它也向上偏移）
+        if (!selected)
+        {
+            selected = true;
+            SelectEvent.Invoke(this, true); // 触发选中事件
+            transform.localPosition += (cardVisual.transform.up * selectionOffset);
+        }
+
+        var holder = FindObjectOfType<HorizontalCardHolder>();
+        var selectedCards = holder.GetSelectedCards();
+
+        // 按 X 坐标升序排序（左到右）
+        selectedCards.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+
+        for (int i = 0; i < selectedCards.Count; i++)
+        {
+            var visual = selectedCards[i].cardVisual;
+            if (visual == null) continue;
+
+            visual.canvas.overrideSorting = true;
+            visual.canvas.sortingOrder = i + 100;
+            selectedCards[i].imageComponent.raycastTarget = false;
+        }
 
         wasDragged = true;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (!isDragging) return;
+
+        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        mousePosition.z = 0;
+
+        Vector3 newPosition = mousePosition - (Vector3)offset;
+        Vector3 delta = newPosition - transform.position;
+
+        // 当前卡牌移动
+        transform.position += delta;
+
+        var holder = FindObjectOfType<HorizontalCardHolder>();
+        var selectedCards = holder.GetSelectedCards();
+
+        foreach (Card card in selectedCards)
+        {
+            if (card != this)
+            {
+                card.transform.position += delta;
+            }
+        }
+
+        //实时根据 X 坐标更新视觉层级
+        var sorted = selectedCards
+            .Where(c => c.cardVisual != null)
+            .OrderBy(c => c.transform.position.x)
+            .ToList();
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            sorted[i].cardVisual.canvas.sortingOrder = i + 100;
+        }
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
         if (isLocked) return;
+
         EndDragEvent.Invoke(this);
         isDragging = false;
-        canvas.GetComponent<GraphicRaycaster>().enabled = true;
-        imageComponent.raycastTarget = true;
+
+        var holder = FindObjectOfType<HorizontalCardHolder>();
+        var selectedCards = holder.GetSelectedCards();
+
+        foreach (var card in selectedCards)
+        {
+            if (card.cardVisual != null)
+            {
+                card.cardVisual.canvas.overrideSorting = false;
+                card.cardVisual.canvas.sortingOrder = 0;
+            }
+
+            card.imageComponent.raycastTarget = true;
+        }
 
         StartCoroutine(FrameWait());
 
@@ -236,14 +320,20 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
     public void Deselect()
     {
         if (isLocked) return;
-        if (selected)
-        {
-            selected = false;
-            if (selected)
-                transform.localPosition += (cardVisual.transform.up * 50);
-            else
-                transform.localPosition = Vector3.zero;
-        }
+
+        if (!selected) return;
+
+        selected = false;
+
+        // 取消视觉：回到原位 + 还原缩放
+        transform.localPosition = Vector3.zero;
+        transform.localScale = Vector3.one;
+
+        // 清除所有选中动画（如果用 DOTween 动过）
+        DOTween.Kill(transform); // 清理动画
+
+        // 通知视觉脚本（如果有反应）
+        SelectEvent.Invoke(this, false);
     }
 
 

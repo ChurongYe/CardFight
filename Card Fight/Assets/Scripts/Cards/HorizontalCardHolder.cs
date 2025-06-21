@@ -15,6 +15,7 @@ public class HorizontalCardHolder : MonoBehaviour
 
     [SerializeField] private GameObject slotPrefab;
     private RectTransform rect;
+    public RectTransform handAreaRect;
 
     [Header("Spawn Settings")]
     //[SerializeField] private int cardsToSpawn = 8;
@@ -43,7 +44,7 @@ public class HorizontalCardHolder : MonoBehaviour
         // 洗牌
         Shuffle(cardPool);
 
-        for (int i = 0; i < transform .childCount; i++)
+        for (int i = 0; i < transform.childCount; i++)
         {
             Card slot = transform.GetChild(i).GetComponentInChildren<Card>();
             slots.Add(slot);
@@ -197,7 +198,7 @@ public class HorizontalCardHolder : MonoBehaviour
         if (selectedCard == null)
             return;
 
-        selectedCard.transform.DOLocalMove(selectedCard.selected ? new Vector3(0,selectedCard.selectionOffset,0) : Vector3.zero, tweenCardReturn ? .15f : 0).SetEase(Ease.OutBack);
+        selectedCard.transform.DOLocalMove(selectedCard.selected ? new Vector3(0, selectedCard.selectionOffset, 0) : Vector3.zero, tweenCardReturn ? .15f : 0).SetEase(Ease.OutBack);
 
         rect.sizeDelta += Vector2.right;
         rect.sizeDelta -= Vector2.right;
@@ -238,6 +239,14 @@ public class HorizontalCardHolder : MonoBehaviour
 
         if (isSorting || isCrossing || selectedCard == null)
             return;
+
+        // 判断 selectedCard 是否还在区域内
+        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(Camera.main, selectedCard.transform.position);
+        if (!RectTransformUtility.RectangleContainsScreenPoint(rect, screenPos, Camera.main))
+        {
+            // 超出区域，不做交换
+            return;
+        }
 
         for (int i = 0; i < cards.Count; i++)
         {
@@ -296,5 +305,53 @@ public class HorizontalCardHolder : MonoBehaviour
             }
         }
     }
+    public List<Card> GetSelectedCards()
+    {
+        return cards.Where(c => c.selected && !c.isLocked).ToList();
+    }
+    public void RefreshLayout()
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].cardVisual.cardImage.color == new Color(1, 1, 1, 0))
+            {
+                // 从右边找第一个有 cardVisual 的卡牌
+                for (int j = i + 1; j < cards.Count; j++)
+                {
+                    if (cards[j].cardVisual.cardImage.color != new Color(1, 1, 1, 0))
+                    {
+                        // 将右侧卡牌整体（Card）移到当前位置（i）
+                        Transform slotI = transform.GetChild(i); // 第i个slot
+                        Transform slotJ = transform.GetChild(j); // 第j个slot
 
+                        Card cardI = cards[i];
+                        Card cardJ = cards[j];
+
+                        // 交换父物体
+                        cardJ.transform.SetParent(slotI);
+                        cardJ.transform.localPosition = cardJ.selected ? new Vector3(0, cardJ.selectionOffset, 0) : Vector3.zero;
+
+                        cardI.transform.SetParent(slotJ);
+                        cardI.transform.localPosition = cardI.selected ? new Vector3(0, cardI.selectionOffset, 0) : Vector3.zero;
+
+                        // 交换列表中的卡牌位置
+                        cards[i] = cardJ;
+                        cards[j] = cardI;
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 更新每张卡的视觉 index
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].cardVisual != null)
+            {
+                cards[i].cardVisual.UpdateIndex(i);
+            }
+        }
+
+    }
 }

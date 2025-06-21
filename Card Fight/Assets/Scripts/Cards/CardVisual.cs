@@ -17,7 +17,7 @@ public class CardVisual : MonoBehaviour
     private Vector3 rotationDelta;
     private int savedIndex;
     Vector3 movementDelta;
-    private Canvas canvas;
+    public Canvas canvas;
     public CardData data;
     /// <summary>
     /// /
@@ -168,13 +168,23 @@ public class CardVisual : MonoBehaviour
 
     private void Select(Card card, bool state)
     {
-        DOTween.Kill(2, true);
-        float dir = state ? 1 : 0;
-        shakeParent.DOPunchPosition(shakeParent.up * selectPunchAmount * dir, scaleTransition, 10, 1);
-        shakeParent.DOPunchRotation(Vector3.forward * (hoverPunchAngle/2), hoverTransition, 20, 1).SetId(2);
+        DOTween.Kill(2, true); // 杀掉选中动画
 
-        if(scaleAnimations)
-            transform.DOScale(scaleOnHover, scaleTransition).SetEase(scaleEase);
+        if (state)
+        {
+            // 被选中：放大 + 抖动
+            float dir = 1;
+            shakeParent.DOPunchPosition(shakeParent.up * selectPunchAmount * dir, scaleTransition, 10, 1);
+            shakeParent.DOPunchRotation(Vector3.forward * (hoverPunchAngle / 2), hoverTransition, 20, 1).SetId(2);
+
+            if (scaleAnimations)
+                transform.DOScale(scaleOnHover, scaleTransition).SetEase(scaleEase);
+        }
+        else
+        {
+            // 被取消选中：恢复默认缩放
+            transform.DOScale(1f, scaleTransition).SetEase(scaleEase);
+        }
 
     }
 
@@ -189,16 +199,34 @@ public class CardVisual : MonoBehaviour
 
     private void BeginDrag(Card card)
     {
-        if(scaleAnimations)
-            transform.DOScale(scaleOnSelect, scaleTransition).SetEase(scaleEase);
-
-        canvas.overrideSorting = true;
+        var holder = FindObjectOfType<HorizontalCardHolder>();
+        foreach (Card c in holder.GetSelectedCards())
+        {
+            if (c.cardVisual != null && c.cardVisual.scaleAnimations)
+            {
+                c.cardVisual.transform.DOScale(scaleOnSelect, scaleTransition).SetEase(scaleEase);
+                c.cardVisual.canvas.overrideSorting = true;
+            }
+        }
     }
 
     private void EndDrag(Card card)
     {
-        canvas.overrideSorting = false;
-        transform.DOScale(1, scaleTransition).SetEase(scaleEase);
+        var holder = FindObjectOfType<HorizontalCardHolder>();
+        foreach (Card c in holder.GetSelectedCards())
+        {
+            if (c.cardVisual != null)
+            {
+                c.cardVisual.canvas.overrideSorting = false;
+                c.cardVisual.transform.DOScale(1, scaleTransition).SetEase(scaleEase);
+
+                // 回到原来的位置
+                if (!c.selected)
+                    c.transform.localPosition = Vector3.zero;
+                else
+                    c.transform.localPosition = new Vector3(0, c.selectionOffset, 0);
+            }
+        }
     }
 
     private void PointerEnter(Card card)
@@ -234,5 +262,12 @@ public class CardVisual : MonoBehaviour
         visualShadow.localPosition += (-Vector3.up * shadowOffset);
         shadowCanvas.overrideSorting = false;
     }
-
+    public void SetEmpty()
+    {
+        // 设置为空的视觉状态
+        if (cardImage != null)
+            cardImage.color = new Color(1, 1, 1, 0);
+        // 取消数据引用（可选）
+        data = null;
+    }
 }
