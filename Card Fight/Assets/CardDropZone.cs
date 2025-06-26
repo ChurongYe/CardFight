@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 public class CardDropZone : MonoBehaviour, IDropHandler
@@ -12,20 +13,31 @@ public class CardDropZone : MonoBehaviour, IDropHandler
             var holder = FindObjectOfType<HorizontalCardHolder>();
             var selectedCards = holder.GetSelectedCards();
 
-            foreach (var card in selectedCards)
+            // 先判断选中牌组是否合法（组合是否有效）
+            if (holder.ValidateCombination(selectedCards) > 0)
             {
-                // 隐藏视觉但不销毁
-                if (card.cardVisual != null)
+                // 合法，出牌：
+                foreach (var card in selectedCards)
                 {
-                    card.cardVisual.SetEmpty(); // 设置为空视觉
+                    if (card.cardVisual == null || card.cardVisual.IsEmpty())
+                        continue;
+
+                    holder.ReturnToCardPool(card.cardVisual.data);
+                    card.cardVisual.SetEmpty();
+                    card.Deselect();
                 }
 
-                //回到原位 + 取消选中状态
-                card.Deselect();
+                holder.RefreshLayout();
             }
-
-            // 补位（让后面的卡牌补上来）
-            holder.RefreshLayout();
+            else
+            {
+                // 不合法，全部回归原位，取消选中
+                foreach (var card in selectedCards)
+                {
+                    card.Deselect();
+                    card.ReturnToOriginalPosition(); // 回归原位并动画
+                }
+            }
         }
     }
 }

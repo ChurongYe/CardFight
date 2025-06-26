@@ -270,4 +270,8 @@ public class CardVisual : MonoBehaviour
         // 取消数据引用（可选）
         data = null;
     }
+    public bool IsEmpty()
+    {
+        return cardImage.color.a == 0;
+    }
 }

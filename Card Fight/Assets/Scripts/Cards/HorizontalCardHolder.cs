@@ -6,6 +6,7 @@ using UnityEngine;
 using DG.Tweening;
 using System.Linq;
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
+using UnityEngine.WSA;
 
 public class HorizontalCardHolder : MonoBehaviour
 {
@@ -121,7 +122,12 @@ public class HorizontalCardHolder : MonoBehaviour
             .Where(c => c != null)
             .ToList();
 
-        var unlockedCards = cards.Where(c => !c.isLocked && c.cardVisual != null).ToList();
+        //只筛选非锁定、非空卡
+        var unlockedCards = cards
+            .Where(c => !c.isLocked && c.cardVisual != null && !c.cardVisual.IsEmpty())
+            .ToList();
+
+        //排序依据：先花色，再数字
         var sortedCards = unlockedCards
             .OrderBy(c => c.cardVisual.data.suit)
             .ThenBy(c => c.cardVisual.data.number)
@@ -354,4 +360,161 @@ public class HorizontalCardHolder : MonoBehaviour
         }
 
     }
+    public void OnCardClicked(Card clicked)
+    {
+        if (clicked.isLocked) return;
+
+        if (clicked.cardVisual != null && clicked.cardVisual.data.IsSpecial)
+        {
+            // 特殊卡只能选中一张
+            var already = cards.FirstOrDefault(c =>
+                c != clicked && c.selected && c.cardVisual != null && c.cardVisual.data.IsSpecial);
+            if (already != null)
+                already.Deselect();
+        }
+
+        // 切换选中状态
+        if (!clicked.selected)
+            clicked.Select();
+        else
+            clicked.Deselect();
+    }
+    public void ReturnToCardPool(CardData card)
+    {
+        if (card != null)
+        {
+            cardPool.Add(card);
+            Debug.Log($"已将 {card} 放回卡池");
+        }
+    }
+    public void RefreshEmptyCards()//刷新卡牌
+    {
+        foreach (var card in cards)
+        {
+            if (card.cardVisual != null && card.cardVisual.IsEmpty() && !card.isCoolingDown)
+            {
+                var newCard = database.GetRandomCardFromPool(cardPool);
+                if (newCard != null)
+                {
+                    card.cardVisual.SetCard(newCard);
+                    card.currentSprite = true;
+                    Debug.Log($"刷新卡牌为：{newCard}");
+                }
+            }
+        }
+    }
+    public void TryPlaySelectedCards()
+    {
+        var selected = GetSelectedCards();
+        if (ValidateCombination(selected) >= 3)
+        {
+            int sum = selected.Sum(c => c.data.number);
+
+            if (selected.Any(c => c.data.specialType == SpecialCardType.Double))
+                sum *= 2;
+            if (selected.Any(c => c.data.specialType == SpecialCardType.Haste))
+                sum += sum;
+
+            // 出牌逻辑
+            foreach (var card in selected)
+            {
+                ReturnToCardPool(card.cardVisual.data); // 放回卡池
+                card.cardVisual.SetEmpty();                    // 视觉隐藏
+                card.Deselect();
+            }
+
+            RefreshLayout(); // 填补空位
+        }
+    }
+
+    public int ValidateCombination(List<Card> cards)
+    {
+        // 如果没有卡牌或任意卡牌为空，不能出牌
+        if (cards == null || cards.Count == 0 || cards.Any(c => c.cardVisual == null || c.cardVisual.IsEmpty()))
+            return 0;
+
+        var cardDatas = cards.Select(c => c.cardVisual.data).ToList();
+
+        // 特殊情况：只选中一张普通卡，允许出牌
+        if (cardDatas.Count == 1 && !cardDatas[0].IsSpecial)
+            return 1;
+
+        // 所有卡都必须是普通卡
+        if (cardDatas.Any(c => c.IsSpecial))
+            return 0;
+
+        // 检查花色是否一致
+        var firstSuit = cardDatas[0].suit;
+        if (!cardDatas.All(c => c.suit == firstSuit))
+            return 0;
+
+        // 提取并排序数字
+        var numbers = cardDatas.Select(c => c.number).OrderBy(n => n).ToList();
+
+        // 检查数字是否连续
+        for (int i = 1; i < numbers.Count; i++)
+        {
+            if (numbers[i] != numbers[i - 1] + 1)
+                return 0;
+        }
+
+        // 满足连续、同花色、3张以上
+        return cardDatas.Count;
+    }
+
+    int FillSequenceWithWilds(List<int> nums)
+    {
+        int maxCount = 0;
+
+        for (int start = 0; start < nums.Count; start++)
+        {
+            int current = 1;
+            int wilds = nums.Count(n => n == -1);
+            int prev = nums[start];
+
+            if (prev == -1) continue;
+
+            for (int i = start + 1; i < nums.Count; i++)
+            {
+                int now = nums[i];
+
+                if (now == prev) continue;
+
+                if (now == prev + 1)
+                {
+                    current++;
+                    prev = now;
+                }
+                else if (wilds > 0 && now > prev + 1)
+                {
+                    // 尝试用 wild 填 gap
+                    int gap = now - prev - 1;
+                    if (wilds >= gap)
+                    {
+                        wilds -= gap;
+                        current += gap + 1;
+                        prev = now;
+                    }
+                    else break;
+                }
+                else break;
+            }
+
+            maxCount = Mathf.Max(maxCount, current);
+        }
+
+        return maxCount;
+    }
+    public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
+    {
+        if (specialCard == null || !specialCard.IsSpecial)
+        {
+            Debug.LogWarning("试图添加的卡不是特殊卡！");
+            return;
+        }
+
+        cardPool.Add(specialCard);
+        Shuffle(cardPool); // 重新洗牌，使其随机出现
+    }
+
 }

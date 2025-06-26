@@ -15,6 +15,13 @@ public class CardData
     public SpecialCardType specialType;
     public Sprite sprite;
     public bool IsSpecial => suit == Suit.Special;
+    public override string ToString()
+    {
+        if (IsSpecial)
+            return $"[Special:{specialType}]";
+        else
+            return $"[Card:{suit}-{number}]";
+    }
 }
 
 public class CardDatabaseYe : MonoBehaviour

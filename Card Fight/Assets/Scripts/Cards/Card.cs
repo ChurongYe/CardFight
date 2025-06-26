@@ -13,6 +13,7 @@ using DG.Tweening;
 
 public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerUpHandler, IPointerDownHandler
 {
+    public CardData data;
     private HorizontalCardHolder holder;
     private Canvas canvas;
     private Image imageComponent;
@@ -266,7 +267,20 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
             wasDragged = false;
         }
     }
+    public void ReturnToOriginalPosition(float transitionTime = 0.15f, Ease ease = Ease.OutBack)
+    {
+        if (cardVisual == null || !gameObject.activeInHierarchy)
+            return;
 
+        DOTween.Kill(transform);
+
+        imageComponent.raycastTarget = true; //恢复点击
+
+        cardVisual.canvas.overrideSorting = false;
+        cardVisual.transform.DOScale(1, transitionTime).SetEase(ease);
+
+        transform.localPosition = selected ? new Vector3(0, selectionOffset, 0) : Vector3.zero;
+    }
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (isLocked) return;
@@ -308,15 +322,28 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         if (wasDragged)
             return;
 
-        selected = !selected;
-        SelectEvent.Invoke(this, selected);
+        //把点击交给 Holder 管理选中逻辑（而不是直接切换 selected）
+        holder?.OnCardClicked(this);
 
-        if (selected)
-            transform.localPosition += (cardVisual.transform.up * selectionOffset);
-        else
-            transform.localPosition = Vector3.zero;
+        //selected = !selected;
+        //SelectEvent.Invoke(this, selected);
+
+        //if (selected)
+        //    transform.localPosition += (cardVisual.transform.up * selectionOffset);
+        //else
+        //    transform.localPosition = Vector3.zero;
     }
+    public void Select()
+    {
+        if (selected) return;
+        selected = true;
 
+        // 选中时：上移 + 放大
+        transform.DOLocalMoveY(selectionOffset, 0.15f).SetEase(Ease.OutBack);
+        transform.DOScale(1.1f, 0.15f).SetEase(Ease.OutBack);
+
+        SelectEvent.Invoke(this, true);
+    }
     public void Deselect()
     {
         if (isLocked) return;
@@ -357,4 +384,12 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         if(cardVisual != null)
         Destroy(cardVisual.gameObject);
     }
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (holder != null && !isLocked)
+        {
+            holder.OnCardClicked(this); // 把点击事件交给 Holder 统一处理
+        }
+    }
+
 }
