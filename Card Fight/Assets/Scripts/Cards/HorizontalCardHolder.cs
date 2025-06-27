@@ -385,6 +385,7 @@ public class HorizontalCardHolder : MonoBehaviour
         {
             cardPool.Add(card);
             Debug.Log($"已将 {card} 放回卡池");
+            Shuffle(cardPool);
         }
     }
     public void RefreshEmptyCards()//刷新卡牌
@@ -398,11 +399,16 @@ public class HorizontalCardHolder : MonoBehaviour
                 {
                     card.cardVisual.SetCard(newCard);
                     card.currentSprite = true;
+
+                    //恢复交互状态
+                    card.ResetStateAfterRefresh();
+
                     Debug.Log($"刷新卡牌为：{newCard}");
                 }
             }
         }
     }
+
     public void TryPlaySelectedCards()
     {
         var selected = GetSelectedCards();
@@ -462,59 +468,59 @@ public class HorizontalCardHolder : MonoBehaviour
         return cardDatas.Count;
     }
 
-    int FillSequenceWithWilds(List<int> nums)
-    {
-        int maxCount = 0;
+    //int FillSequenceWithWilds(List<int> nums)
+    //{
+    //    int maxCount = 0;
 
-        for (int start = 0; start < nums.Count; start++)
-        {
-            int current = 1;
-            int wilds = nums.Count(n => n == -1);
-            int prev = nums[start];
+    //    for (int start = 0; start < nums.Count; start++)
+    //    {
+    //        int current = 1;
+    //        int wilds = nums.Count(n => n == -1);
+    //        int prev = nums[start];
 
-            if (prev == -1) continue;
+    //        if (prev == -1) continue;
 
-            for (int i = start + 1; i < nums.Count; i++)
-            {
-                int now = nums[i];
+    //        for (int i = start + 1; i < nums.Count; i++)
+    //        {
+    //            int now = nums[i];
 
-                if (now == prev) continue;
+    //            if (now == prev) continue;
 
-                if (now == prev + 1)
-                {
-                    current++;
-                    prev = now;
-                }
-                else if (wilds > 0 && now > prev + 1)
-                {
-                    // 尝试用 wild 填 gap
-                    int gap = now - prev - 1;
-                    if (wilds >= gap)
-                    {
-                        wilds -= gap;
-                        current += gap + 1;
-                        prev = now;
-                    }
-                    else break;
-                }
-                else break;
-            }
+    //            if (now == prev + 1)
+    //            {
+    //                current++;
+    //                prev = now;
+    //            }
+    //            else if (wilds > 0 && now > prev + 1)
+    //            {
+    //                // 尝试用 wild 填 gap
+    //                int gap = now - prev - 1;
+    //                if (wilds >= gap)
+    //                {
+    //                    wilds -= gap;
+    //                    current += gap + 1;
+    //                    prev = now;
+    //                }
+    //                else break;
+    //            }
+    //            else break;
+    //        }
 
-            maxCount = Mathf.Max(maxCount, current);
-        }
+    //        maxCount = Mathf.Max(maxCount, current);
+    //    }
 
-        return maxCount;
-    }
-    public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
-    {
-        if (specialCard == null || !specialCard.IsSpecial)
-        {
-            Debug.LogWarning("试图添加的卡不是特殊卡！");
-            return;
-        }
+    //    return maxCount;
+    //}
+    //public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
+    //{
+    //    if (specialCard == null || !specialCard.IsSpecial)
+    //    {
+    //        Debug.LogWarning("试图添加的卡不是特殊卡！");
+    //        return;
+    //    }
 
-        cardPool.Add(specialCard);
-        Shuffle(cardPool); // 重新洗牌，使其随机出现
-    }
+    //    cardPool.Add(specialCard);
+    //    Shuffle(cardPool); // 重新洗牌，使其随机出现
+    //}
 
 }

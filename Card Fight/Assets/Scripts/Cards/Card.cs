@@ -391,5 +391,11 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
             holder.OnCardClicked(this); // 把点击事件交给 Holder 统一处理
         }
     }
-
+    public void ResetStateAfterRefresh()//刷新卡牌
+    {
+        selected = false;
+        imageComponent.raycastTarget = true;
+        transform.localPosition = Vector3.zero;
+        transform.localScale = Vector3.one;
+    }
 }

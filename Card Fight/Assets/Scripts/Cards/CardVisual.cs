@@ -125,6 +125,8 @@ public class CardVisual : MonoBehaviour
     {
         data = card;
         cardImage.sprite = card.sprite;
+        cardImage.color = new Color(1, 1, 1, 1);
+
     }
     private void HandPositioning()
     {
