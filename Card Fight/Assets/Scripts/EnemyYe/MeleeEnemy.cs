@@ -17,6 +17,7 @@ public class MeleeEnemy : EnemyManager
         ifattacking = true;
         if (!isAttacking)
             StartCoroutine(TryAttack());
+        animator.SetTrigger("IsAttacking");
     }
 
     private IEnumerator TryAttack()

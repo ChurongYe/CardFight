@@ -47,6 +47,8 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     protected bool isStunned = false;
     protected float stunEndTime = -1f;
 
+    public Animator animator;
+
     protected virtual void Start()
     {
         playerValue = FindObjectOfType<PlayerValue>();
@@ -63,6 +65,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
             hurtUI = bar.GetComponent<HurtUI>();
             hurtUI.UpdateHealthBar(currentHP, maxHP);
         }
+        animator = GetComponent<Animator>();
     }
 
     protected virtual void Update()
@@ -87,6 +90,11 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         SearchForTarget();//寻找目标
         if (!IfneedWalk) return;
         UpdateEnemyLogic();//接近目标
+                           // 控制移动动画
+        if (agent != null && animator != null && agent.enabled && !ifattacking && !isStunned)
+        {
+            animator.SetFloat("Speed", agent.velocity.magnitude);
+        }
     }
     protected virtual void SearchForTarget()
     {
@@ -287,6 +295,10 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         if (agent)
         { agent.destination = transform.position; }
         GetComponent<Collider2D>().enabled = false;
+        if (animator != null)
+        {
+            animator.SetBool("IsDead", true);
+        }
         yield return new WaitForSeconds(dieDelay);
         Destroy(gameObject);
     }
