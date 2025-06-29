@@ -20,6 +20,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
     [SerializeField] private bool instantiateVisual = true;
     private VisualCardsHandler visualHandler;
     private Vector3 offset;
+    public bool isCardBack = false;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeedLimit = 50;
@@ -81,6 +82,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
             cardVisual = visual.GetComponent<CardVisual>();
             cardVisual.Initialize(this);
             cardVisual.SetCardBack(); //你需要实现这个方法，用来显示卡背面
+            isCardBack = true;
             currentSprite = true;
             yield break;
         }

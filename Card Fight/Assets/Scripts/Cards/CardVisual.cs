@@ -100,11 +100,14 @@ public class CardVisual : MonoBehaviour
         if (cardImage != null && cardBackSprite != null)
         {
             cardImage.sprite = cardBackSprite;
+            cardImage.color = Color.white;
         }
         else
         {
             Debug.LogWarning("CardVisual: 卡背 sprite 或 cardImage 未设置");
         }
+
+        data = null; // 通常卡背卡不携带具体数据
     }
     public void UpdateIndex(int length)
     {
@@ -124,8 +127,18 @@ public class CardVisual : MonoBehaviour
     public void SetCard(CardData card)
     {
         data = card;
-        cardImage.sprite = card.sprite;
-        cardImage.color = new Color(1, 1, 1, 1);
+
+        if (cardImage != null && card.sprite != null)
+        {
+            cardImage.sprite = card.sprite;
+            cardImage.color = new Color(1, 1, 1, 1); // 完全不透明
+        }
+
+        // 设置卡片状态
+        var cardComponent = GetComponentInParent<Card>();
+        if (cardComponent != null)
+            cardComponent.isCardBack = false;
+
 
     }
     private void HandPositioning()
@@ -266,14 +279,25 @@ public class CardVisual : MonoBehaviour
     }
     public void SetEmpty()
     {
-        // 设置为空的视觉状态
         if (cardImage != null)
-            cardImage.color = new Color(1, 1, 1, 0);
-        // 取消数据引用（可选）
+        {
+            cardImage.color = new Color(1, 1, 1, 0); // 完全透明
+            cardImage.sprite = null;                // 移除贴图（可选）
+        }
+
         data = null;
+
+        // 设置卡片状态
+        var card = GetComponentInParent<Card>();
+        if (card != null)
+            card.isCardBack = false;
     }
     public bool IsEmpty()
     {
         return cardImage.color.a == 0;
+    }
+    public bool IsBack()
+    {
+        return cardImage != null && cardImage.sprite == cardBackSprite;
     }
 }

@@ -37,17 +37,17 @@ namespace Core
             fireball = false;
         }
         //»ù´¡ÅÆ
-        public void AddAttack1()
+        public void AddAttack(float amount)
         {
-            playerValue.IncreaseStat("Attack", 1f, BuffType.Stage, 0, false);
+            playerValue.IncreaseStat("Attack", amount, BuffType.Stage, 0, false);
         }
-        public void AddDefense1()
+        public void AddDefense(float amount)
         {
-            playerValue.IncreaseStat("Defense", 1f, BuffType.Stage,0,false);
+            playerValue.IncreaseStat("Defense", amount, BuffType.Stage, 0, false);
         }
-        public void AddcurrentHP1()
+        public void AddCurrentHP(float amount)
         {
-            playerValue.IncreaseStat("currentHP", 1f, BuffType.Session , 0, false);
+            playerValue.IncreaseStat("currentHP", amount, BuffType.Session, 0, false);
         }
         public void AddCrit123()
         {

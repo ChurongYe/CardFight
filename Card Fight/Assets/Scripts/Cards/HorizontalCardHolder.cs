@@ -7,10 +7,11 @@ using DG.Tweening;
 using System.Linq;
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
 using UnityEngine.WSA;
+using Core;
 
 public class HorizontalCardHolder : MonoBehaviour
 {
-
+    [SerializeField] private CardValue cardValue;
     [SerializeField] private Card selectedCard;
     [SerializeReference] private Card hoveredCard;
 
@@ -29,18 +30,29 @@ public class HorizontalCardHolder : MonoBehaviour
     public List<CardData> cardPool;
     public List<Card> slots = new List<Card>();
     private bool isSorting = false;
+    private Queue<Suit> lastPlayedSuits = new Queue<Suit>();
+    private const int comboThreshold = 3;
 
+    void Awake()
+    {
+        cardValue = FindObjectOfType<CardValue>();
+    }
     void Start()
     {
-        // 原始一套基础卡牌
-        List<CardData> baseCards = database.GetShuffledNormalCards();
+        // 获取普通卡牌（非特殊卡）
+        var normalCards = database.GetShuffledNormalCards();
 
-        // 乘以3倍
-        cardPool = new List<CardData>();
+        // 获取特殊卡牌
+        var specialCards = database.allCards.Where(c => c.IsSpecial).ToList();
+
+        // 普通卡添加 3 份
         for (int i = 0; i < 3; i++)
         {
-            cardPool.AddRange(baseCards);
+            cardPool.AddRange(normalCards);
         }
+
+        // 特殊卡添加 1 份
+        cardPool.AddRange(specialCards);
 
         // 洗牌
         Shuffle(cardPool);
@@ -116,22 +128,31 @@ public class HorizontalCardHolder : MonoBehaviour
     {
         isSorting = true;
 
-        // 同步最新顺序
+        // 更新完整卡牌列表
         cards = transform.Cast<Transform>()
             .Select(t => t.GetComponentInChildren<Card>())
             .Where(c => c != null)
             .ToList();
 
-        //只筛选非锁定、非空卡
-        var unlockedCards = cards
-            .Where(c => !c.isLocked && c.cardVisual != null && !c.cardVisual.IsEmpty())
-            .ToList();
-
-        //排序依据：先花色，再数字
-        var sortedCards = unlockedCards
+        // 排序目标：非锁定、非空、非卡背
+        var sortableCards = cards
+            .Where(c => !c.isLocked && c.cardVisual != null && !c.cardVisual.IsEmpty() && !c.cardVisual.IsBack())
             .OrderBy(c => c.cardVisual.data.suit)
             .ThenBy(c => c.cardVisual.data.number)
             .ToList();
+
+        // 固定卡背卡：排在后面
+        var backCards = cards
+            .Where(c => !c.isLocked && c.cardVisual != null && c.cardVisual.IsBack())
+            .ToList();
+
+        // 固定空卡：排在排序卡片之后、卡背卡之前
+        var emptyCards = cards
+            .Where(c => !c.isLocked && c.cardVisual != null && c.cardVisual.IsEmpty())
+            .ToList();
+
+        // 构建目标卡牌顺序：普通卡 -> 空卡 -> 卡背卡
+        var sortedCards = sortableCards.Concat(emptyCards).Concat(backCards).ToList();
 
         bool hasSwapped;
 
@@ -142,7 +163,7 @@ public class HorizontalCardHolder : MonoBehaviour
             for (int i = 0; i < sortedCards.Count; i++)
             {
                 var targetCard = sortedCards[i];
-                var currentCard = unlockedCards[i];
+                var currentCard = cards[i];
 
                 if (targetCard == currentCard)
                     continue;
@@ -155,20 +176,18 @@ public class HorizontalCardHolder : MonoBehaviour
 
                 SwapCardsPositions(cards[currentIndex], cards[targetIndex]);
 
-                // 更新 cards 顺序
-                cards[currentIndex] = targetCard;
-                cards[targetIndex] = currentCard;
-
-                // 更新 unlockedCards 同步下次检查用
-                unlockedCards = cards.Where(c => !c.isLocked && c.cardVisual != null).ToList();
+                // 交换 cards 中的位置
+                var temp = cards[currentIndex];
+                cards[currentIndex] = cards[targetIndex];
+                cards[targetIndex] = temp;
 
                 hasSwapped = true;
-                yield return new WaitForSeconds(0.05f); // 每次交换暂停一点点
+                yield return new WaitForSeconds(0.05f);
+                break; // 每次只交换一对，避免死循环
             }
 
         } while (hasSwapped);
 
-        yield return new WaitForSeconds(0.25f);
         isSorting = false;
     }
     // 负责交换两张卡牌的父物体、局部位置、并触发视觉动画
@@ -317,48 +336,29 @@ public class HorizontalCardHolder : MonoBehaviour
     }
     public void RefreshLayout()
     {
-        for (int i = 0; i < cards.Count; i++)
+        // 把非卡背卡片 + 非空卡片放前面，卡背卡片始终在最后
+        var frontCards = cards
+            .Where(c => !c.isCardBack && c.cardVisual != null)
+            .OrderBy(c => c.cardVisual.IsEmpty()) // 空卡排前面
+            .ToList();
+
+        var cardBackCards = cards
+            .Where(c => c.isCardBack && c.cardVisual != null)
+            .ToList();
+
+        var finalOrder = frontCards.Concat(cardBackCards).ToList();
+
+        // 重排位置
+        for (int i = 0; i < finalOrder.Count; i++)
         {
-            if (cards[i].cardVisual.cardImage.color == new Color(1, 1, 1, 0))
-            {
-                // 从右边找第一个有 cardVisual 的卡牌
-                for (int j = i + 1; j < cards.Count; j++)
-                {
-                    if (cards[j].cardVisual.cardImage.color != new Color(1, 1, 1, 0))
-                    {
-                        // 将右侧卡牌整体（Card）移到当前位置（i）
-                        Transform slotI = transform.GetChild(i); // 第i个slot
-                        Transform slotJ = transform.GetChild(j); // 第j个slot
-
-                        Card cardI = cards[i];
-                        Card cardJ = cards[j];
-
-                        // 交换父物体
-                        cardJ.transform.SetParent(slotI);
-                        cardJ.transform.localPosition = cardJ.selected ? new Vector3(0, cardJ.selectionOffset, 0) : Vector3.zero;
-
-                        cardI.transform.SetParent(slotJ);
-                        cardI.transform.localPosition = cardI.selected ? new Vector3(0, cardI.selectionOffset, 0) : Vector3.zero;
-
-                        // 交换列表中的卡牌位置
-                        cards[i] = cardJ;
-                        cards[j] = cardI;
-
-                        break;
-                    }
-                }
-            }
+            var card = finalOrder[i];
+            var slot = transform.GetChild(i);
+            card.transform.SetParent(slot);
+            card.transform.localPosition = card.selected ? new Vector3(0, card.selectionOffset, 0) : Vector3.zero;
+            card.cardVisual.UpdateIndex(i);
         }
 
-        // 更新每张卡的视觉 index
-        for (int i = 0; i < cards.Count; i++)
-        {
-            if (cards[i].cardVisual != null)
-            {
-                cards[i].cardVisual.UpdateIndex(i);
-            }
-        }
-
+        cards = finalOrder;
     }
     public void OnCardClicked(Card clicked)
     {
@@ -412,27 +412,93 @@ public class HorizontalCardHolder : MonoBehaviour
     public void TryPlaySelectedCards()
     {
         var selected = GetSelectedCards();
-        if (ValidateCombination(selected) >= 3)
+        int valid = ValidateCombination(selected);
+
+        if (valid == 0) return;
+
+        var cardDatas = selected.Select(c => c.cardVisual.data).ToList();
+        var firstSuit = cardDatas[0].suit;
+        int cardCount = cardDatas.Count;
+        int sum = cardDatas.Sum(c => c.number);
+
+        var cardValue = FindObjectOfType<CardValue>();
+
+        // 特殊卡不记录进出牌记录（不触发连击效果）
+        bool isSpecial = cardDatas.Any(c => c.IsSpecial);
+
+        // 处理实际加成逻辑：
+        if (cardCount == 1)
         {
-            int sum = selected.Sum(c => c.data.number);
-
-            if (selected.Any(c => c.data.specialType == SpecialCardType.Double))
-                sum *= 2;
-            if (selected.Any(c => c.data.specialType == SpecialCardType.Haste))
-                sum += sum;
-
-            // 出牌逻辑
-            foreach (var card in selected)
+            // 单张出牌
+            switch (firstSuit)
             {
-                ReturnToCardPool(card.cardVisual.data); // 放回卡池
-                card.cardVisual.SetEmpty();                    // 视觉隐藏
-                card.Deselect();
+                case Suit.Red:
+                    cardValue.AddAttack(1f);
+                    break;
+                case Suit.Green:
+                    cardValue.AddCurrentHP(1f);
+                    break;
+                case Suit.Blue:
+                    cardValue.AddDefense(1f);
+                    break;
             }
-
-            RefreshLayout(); // 填补空位
         }
-    }
+        else if (cardCount >= 4)
+        {
+            // 连续/重复4张及以上，数值总和加成
+            switch (firstSuit)
+            {
+                case Suit.Red:
+                    cardValue.AddAttack(sum);
+                    break;
+                case Suit.Green:
+                    cardValue.AddCurrentHP(sum);
+                    break;
+                case Suit.Blue:
+                    cardValue.AddDefense(sum);
+                    break;
+            }
+        }
 
+        // 记录普通牌花色，用于后续触发连续出牌奖励
+        if (!isSpecial)
+        {
+            lastPlayedSuits.Enqueue(firstSuit);
+            if (lastPlayedSuits.Count > comboThreshold)
+                lastPlayedSuits.Dequeue();
+
+            // 检查是否连续3次相同花色出牌
+            if (lastPlayedSuits.Count == comboThreshold &&
+                lastPlayedSuits.All(s => s == firstSuit))
+            {
+                switch (firstSuit)
+                {
+                    case Suit.Red:
+                        cardValue.AddCrit123();
+                        break;
+                    case Suit.Green:
+                        cardValue.AddcurrentHP123();
+                        break;
+                    case Suit.Blue:
+                        cardValue.AddDefense123();
+                        break;
+                }
+
+                // 清空记录，防止重复触发
+                lastPlayedSuits.Clear();
+            }
+        }
+
+        // 出牌视觉处理
+        foreach (var card in selected)
+        {
+            ReturnToCardPool(card.cardVisual.data);
+            card.cardVisual.SetEmpty();
+            card.Deselect();
+        }
+
+        RefreshLayout(); // 补位
+    }
     public int ValidateCombination(List<Card> cards)
     {
         // 如果没有卡牌或任意卡牌为空，不能出牌
@@ -467,7 +533,17 @@ public class HorizontalCardHolder : MonoBehaviour
         // 满足连续、同花色、3张以上
         return cardDatas.Count;
     }
+    public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
+    {
+        if (specialCard == null || !specialCard.IsSpecial)
+        {
+            Debug.LogWarning("试图添加的卡不是特殊卡！");
+            return;
+        }
 
+        cardPool.Add(specialCard);
+        Shuffle(cardPool); // 重新洗牌，使其随机出现
+    }
     //int FillSequenceWithWilds(List<int> nums)
     //{
     //    int maxCount = 0;
@@ -510,17 +586,6 @@ public class HorizontalCardHolder : MonoBehaviour
     //    }
 
     //    return maxCount;
-    //}
-    //public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
-    //{
-    //    if (specialCard == null || !specialCard.IsSpecial)
-    //    {
-    //        Debug.LogWarning("试图添加的卡不是特殊卡！");
-    //        return;
-    //    }
-
-    //    cardPool.Add(specialCard);
-    //    Shuffle(cardPool); // 重新洗牌，使其随机出现
     //}
 
 }
