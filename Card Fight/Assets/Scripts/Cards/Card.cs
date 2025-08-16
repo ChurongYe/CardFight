@@ -79,6 +79,7 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         if (isLocked)
         {
             GameObject visual = Instantiate(cardVisualPrefab, visualHandler ? visualHandler.transform : canvas.transform);
+            cardVisualPrefab.layer = LayerMask.NameToLayer("UIcard");
             cardVisual = visual.GetComponent<CardVisual>();
             cardVisual.Initialize(this);
             cardVisual.SetCardBack(); //你需要实现这个方法，用来显示卡背面

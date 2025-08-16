@@ -22,6 +22,7 @@ public class PlayerController : MonoBehaviour
     public enum AttackMode { Melee, Ranged }
     public static AttackMode currentAttackMode = AttackMode.Melee;
     public SkillEffectConfig effectConfig;
+    private GameObject currentAttackEffect;
     public Transform meleeEffectPoint;
     public Transform rangedEffectPoint;
 
@@ -206,6 +207,7 @@ public class PlayerController : MonoBehaviour
             ifAttacking = false;
             canAttack = true;//
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
+            StopAttackEffect();//取消特效
         }
         else
         {
@@ -249,8 +251,16 @@ public class PlayerController : MonoBehaviour
         GameObject prefab = effectConfig.GetEffect(effectKey);
         if (prefab != null)
         {
-            Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
-            AttackEffect effect = prefab.GetComponent<AttackEffect>();
+            // 先清除旧特效（防止残留）
+            if (currentAttackEffect != null)
+            {
+                Destroy(currentAttackEffect);
+                currentAttackEffect = null;
+            }
+
+            currentAttackEffect = Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
+
+            AttackEffect effect = currentAttackEffect.GetComponent<AttackEffect>();
             if (effect != null)
             {
                 effect.SetWeapon(GetComponent<Weapon>());
@@ -260,6 +270,14 @@ public class PlayerController : MonoBehaviour
         else
         {
             Debug.LogWarning("特效未找到：" + effectKey);
+        }
+    }
+    public void StopAttackEffect()
+    {
+        if (currentAttackEffect != null)
+        {
+            Destroy(currentAttackEffect);
+            currentAttackEffect = null;
         }
     }
     // 组合出特效 key
@@ -719,7 +737,7 @@ public class PlayerController : MonoBehaviour
         yield return new WaitForSeconds(0.3f);
         // 恢复原色
         spriteRenderer.color = originalColor;
-        yield return new WaitForSeconds(0.5f); // 无敌帧时长
+        yield return new WaitForSeconds(0.2f); // 无敌帧时长
         isInvincible = false;
     }
     IEnumerator HurtRoutineShield()

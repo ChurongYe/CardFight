@@ -16,9 +16,12 @@ public class EnemyMeleeAttack : EnemyManager
     {
         ifattacking = true;
         if (!isAttacking)
-            StartCoroutine(AttackFlow());
+        animator.SetTrigger("IsAttacking");
     }
-
+    public void Fight()
+    {
+        StartCoroutine(AttackFlow());
+    }
     private IEnumerator AttackFlow()
     {
         if (Time.time - lastAttackTime >= attackCooldown && currentTarget != null)
@@ -75,7 +78,6 @@ public class EnemyMeleeAttack : EnemyManager
                     attackArea.transform.position = rotatedPos;
                     attackArea.transform.rotation = Quaternion.Euler(0, 0, currentAngle);
                 }
-
                 yield return null;
             }
 

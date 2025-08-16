@@ -101,19 +101,23 @@ public class OrbitAttackEnemy : EnemyManager
     void Attack()
     {
         Debug.Log("敌人攻击玩家！");
-        if (attackArea && currentTarget)
-        {
-            // 让攻击轴（attackPivot）朝向目标
-            Vector2 direction = currentTarget.position - attackPivot.transform.position;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            attackPivot.transform.rotation = Quaternion.Euler(0, 0, angle);
-            StartCoroutine(ActivateAttackArea());
-        }
+        //if (attackArea && currentTarget)
+        //{
+        //    // 让攻击轴（attackPivot）朝向目标
+        //    Vector2 direction = currentTarget.position - attackPivot.transform.position;
+        //    float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        //    attackPivot.transform.rotation = Quaternion.Euler(0, 0, angle);
+        //}
+        animator.SetTrigger("IsAttacking");
+    }
+    public void Fight()
+    {
+        StartCoroutine(ActivateAttackArea());
     }
     IEnumerator ActivateAttackArea()
     {
         attackArea.SetActive(true);
-        yield return new WaitForSeconds(0.2f); // 攻击有效时间，0.2 秒可调整
+        yield return new WaitForSeconds(0.5f); // 攻击有效时间，0.2 秒可调整
         attackArea.SetActive(false);
     }
 }

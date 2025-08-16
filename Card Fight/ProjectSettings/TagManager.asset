@@ -15,6 +15,7 @@ TagManager:
   - Lighting
   - Boss
   - OneLight
+  - Slot
   layers:
   - Default
   - TransparentFX
@@ -26,7 +27,7 @@ TagManager:
   - Enemy
   - Summon
   - Wall
-  - 
+  - UIcard
   - 
   - 
   - 
