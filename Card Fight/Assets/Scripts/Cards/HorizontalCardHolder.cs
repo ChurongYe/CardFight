@@ -51,8 +51,11 @@ public class HorizontalCardHolder : MonoBehaviour
             cardPool.AddRange(normalCards);
         }
 
-        // 特殊卡添加 1 份
-        cardPool.AddRange(specialCards);
+        // 特殊卡添加 4 份
+        for (int i = 0; i < 4; i++)
+        {
+            cardPool.AddRange(specialCards);
+        }
 
         // 洗牌
         Shuffle(cardPool);
@@ -486,6 +489,19 @@ public class HorizontalCardHolder : MonoBehaviour
 
                 // 清空记录，防止重复触发
                 lastPlayedSuits.Clear();
+            }
+            //当满足连续、同花色、3张以上，并且包含加点牌
+            if (cardCount >= 3 && !isSpecial && cardDatas.All(c => c.suit == firstSuit))
+            {
+                bool hasUpgradeCard = cardDatas.Any(c => c.isUpgradeCard); // 你的“加点牌”判定
+                if (hasUpgradeCard)
+                {
+                    var upgradeUI = FindObjectOfType<CardUpgradeUI>();
+                    if (upgradeUI != null)
+                    {
+                        upgradeUI.Show(firstSuit);
+                    }
+                }
             }
         }
 

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using System.Linq;
 
 public enum Suit { Red, Green, Blue, Special }
-public enum SpecialCardType { Wild, Summon, Double, Haste }
+public enum SpecialCardType { Wild, Summon, Double, Haste,And }
 
 [Serializable]
 public class CardData
@@ -15,6 +15,7 @@ public class CardData
     public SpecialCardType specialType;
     public Sprite sprite;
     public bool IsSpecial => suit == Suit.Special;
+    public bool isUpgradeCard => specialType == SpecialCardType.And;
     public override string ToString()
     {
         if (IsSpecial)
