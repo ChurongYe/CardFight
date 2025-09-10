@@ -74,7 +74,7 @@ public class StartMenuController : MonoBehaviour
         }
 
         // ÇÐºÚÆÁÒôÀÖ
-        if (AudioManager.Instance) AudioManager.Instance.Play(AudioManager.MusicTrack.Black, 0.5f, loopOverride: false);
+       // if (AudioManager.Instance) AudioManager.Instance.Play(AudioManager.MusicTrack.Black, 0.5f, loopOverride: false);
 
         // Òþ²Ø¿ªÊ¼²Ëµ¥
         HideStartCanvasSafe();
