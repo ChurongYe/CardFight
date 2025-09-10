@@ -80,7 +80,8 @@ public class StartMenuController : MonoBehaviour
         HideStartCanvasSafe();
 
         // 交给 StoryDirector 跑整段演出（期间保持 timeScale=0）
-        if (story) yield return story.PlayOpeningSequence();
+        if (story != null)
+            yield return story.PlayOpeningSequenceAndWait();
 
         // 演出结束 → 正式进入游戏
         SetGameplayActive(true);
