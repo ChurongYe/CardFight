@@ -341,6 +341,12 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         if (selected) return;
         selected = true;
 
+        // 播放卡牌点击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.CardClick);
+        }
+
         // 选中时：上移 + 放大
         transform.DOLocalMoveY(selectionOffset, 0.15f).SetEase(Ease.OutBack);
         transform.DOScale(1.1f, 0.15f).SetEase(Ease.OutBack);
@@ -352,6 +358,12 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
         if (isLocked) return;
 
         if (!selected) return;
+
+        // 播放卡牌点击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.CardClick);
+        }
 
         selected = false;
 
@@ -389,6 +401,9 @@ public class Card : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHand
     }
     public void OnPointerClick(PointerEventData eventData)
     {
+        
+        Debug.Log("点击卡牌");
+        
         if (holder != null && !isLocked)
         {
             holder.OnCardClicked(this); // 把点击事件交给 Holder 统一处理

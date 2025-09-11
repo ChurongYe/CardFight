@@ -63,7 +63,14 @@ public class DialogueUI : MonoBehaviour
         bool clicked = false;
         clickCatcher.gameObject.SetActive(true);
         clickCatcher.onClick.RemoveAllListeners();
-        clickCatcher.onClick.AddListener(() => clicked = true);
+        clickCatcher.onClick.AddListener(() => {
+            // ²¥·Åµã»÷ÒôÐ§
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySfx(AudioManager.Sfx.CardClick);
+            }
+            clicked = true;
+        });
 
         while (!clicked) yield return null;
 

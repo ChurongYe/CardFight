@@ -245,6 +245,12 @@ public class PlayerController : MonoBehaviour
     // 动画事件：通用触发
     public void PlayAttackEffect()
     {
+        // 播放攻击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+        }
+        
         string effectKey = GetCurrentEffectKey();
         Transform spawnPoint = (currentAttackMode == AttackMode.Melee) ? meleeEffectPoint : rangedEffectPoint;
 
@@ -473,6 +479,11 @@ public class PlayerController : MonoBehaviour
                 {
                     Face.transform.right = (currentTarget.position - Face.transform.position);
 
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+                    }
+
                     if (currentAttackMode == AttackMode.Melee)
                     {
                         StartCoroutine(MeleeAttack());
@@ -544,6 +555,12 @@ public class PlayerController : MonoBehaviour
     {
         if (currentTarget == null) return;
 
+        // 播放攻击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+        }
+
         // 向上偏移生成位置（例如：从角色头部或手部发射）
         Vector3 spawnPos = transform.position + Vector3.up * 0.5f;
 
@@ -594,6 +611,12 @@ public class PlayerController : MonoBehaviour
     {
         if (TryTriggerShield(enemy)) return; // 无敌护盾
         if (isInvincible) return;
+
+        // 播放受伤音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.GetHit);
+        }
 
         // [1] 临时护盾吸收伤害
         if (PlayerValue.currentShield > 0)
