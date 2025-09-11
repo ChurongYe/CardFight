@@ -22,6 +22,7 @@ public class PlayerController : MonoBehaviour
     public enum AttackMode { Melee, Ranged }
     public static AttackMode currentAttackMode = AttackMode.Melee;
     public SkillEffectConfig effectConfig;
+    private GameObject currentAttackEffect;
     public Transform meleeEffectPoint;
     public Transform rangedEffectPoint;
 
@@ -206,6 +207,7 @@ public class PlayerController : MonoBehaviour
             ifAttacking = false;
             canAttack = true;//
             currentVelocity = Vector2.MoveTowards(currentVelocity, moveInput * walkSpeed, acceleration * Time.fixedDeltaTime);
+            StopAttackEffect();//取消特效
         }
         else
         {
@@ -243,14 +245,28 @@ public class PlayerController : MonoBehaviour
     // 动画事件：通用触发
     public void PlayAttackEffect()
     {
+        // 播放攻击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+        }
+        
         string effectKey = GetCurrentEffectKey();
         Transform spawnPoint = (currentAttackMode == AttackMode.Melee) ? meleeEffectPoint : rangedEffectPoint;
 
         GameObject prefab = effectConfig.GetEffect(effectKey);
         if (prefab != null)
         {
-            Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
-            AttackEffect effect = prefab.GetComponent<AttackEffect>();
+            // 先清除旧特效（防止残留）
+            if (currentAttackEffect != null)
+            {
+                Destroy(currentAttackEffect);
+                currentAttackEffect = null;
+            }
+
+            currentAttackEffect = Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
+
+            AttackEffect effect = currentAttackEffect.GetComponent<AttackEffect>();
             if (effect != null)
             {
                 effect.SetWeapon(GetComponent<Weapon>());
@@ -260,6 +276,14 @@ public class PlayerController : MonoBehaviour
         else
         {
             Debug.LogWarning("特效未找到：" + effectKey);
+        }
+    }
+    public void StopAttackEffect()
+    {
+        if (currentAttackEffect != null)
+        {
+            Destroy(currentAttackEffect);
+            currentAttackEffect = null;
         }
     }
     // 组合出特效 key
@@ -455,6 +479,11 @@ public class PlayerController : MonoBehaviour
                 {
                     Face.transform.right = (currentTarget.position - Face.transform.position);
 
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+                    }
+
                     if (currentAttackMode == AttackMode.Melee)
                     {
                         StartCoroutine(MeleeAttack());
@@ -526,6 +555,12 @@ public class PlayerController : MonoBehaviour
     {
         if (currentTarget == null) return;
 
+        // 播放攻击音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.Attack);
+        }
+
         // 向上偏移生成位置（例如：从角色头部或手部发射）
         Vector3 spawnPos = transform.position + Vector3.up * 0.5f;
 
@@ -576,6 +611,12 @@ public class PlayerController : MonoBehaviour
     {
         if (TryTriggerShield(enemy)) return; // 无敌护盾
         if (isInvincible) return;
+
+        // 播放受伤音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(AudioManager.Sfx.GetHit);
+        }
 
         // [1] 临时护盾吸收伤害
         if (PlayerValue.currentShield > 0)
@@ -719,7 +760,7 @@ public class PlayerController : MonoBehaviour
         yield return new WaitForSeconds(0.3f);
         // 恢复原色
         spriteRenderer.color = originalColor;
-        yield return new WaitForSeconds(0.5f); // 无敌帧时长
+        yield return new WaitForSeconds(0.2f); // 无敌帧时长
         isInvincible = false;
     }
     IEnumerator HurtRoutineShield()

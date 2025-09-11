@@ -303,7 +303,7 @@ GameObject:
   - component: {fileID: 7994647478966201829}
   - component: {fileID: 4132845374223140069}
   - component: {fileID: 404130344431792101}
-  m_Layer: 5
+  m_Layer: 10
   m_Name: CardVisual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -351,6 +351,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   parentCard: {fileID: 0}
+  canvas: {fileID: 0}
   data:
     suit: 0
     number: 0

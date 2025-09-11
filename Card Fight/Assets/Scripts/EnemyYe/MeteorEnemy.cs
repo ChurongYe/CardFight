@@ -24,11 +24,15 @@ public class MeteorEnemy : EnemyManager
         attackTimer -= Time.deltaTime;
         if (attackTimer <= 0f)
         {
-            StartCoroutine(SummonMeteorsAndResetCooldown());
+            animator.SetTrigger("IsAttacking");
             attackTimer = float.MaxValue; // 暂时阻止重复触发，直到协程里重置
         }
+        FaceTarget(currentTarget);
     }
-
+    public void Fight()
+    {
+        StartCoroutine(SummonMeteorsAndResetCooldown());
+    }
     IEnumerator SummonMeteorsAndResetCooldown()
     {
         for (int i = 0; i < meteorCount; i++)

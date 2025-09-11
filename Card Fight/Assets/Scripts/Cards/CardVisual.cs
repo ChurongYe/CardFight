@@ -148,11 +148,22 @@ public class CardVisual : MonoBehaviour
         curveRotationOffset = curve.rotation.Evaluate(parentCard.NormalizedPosition());
     }
 
-    private void SmoothFollow()
+private void SmoothFollow()
+{
+    Vector3 verticalOffset = (Vector3.up * (parentCard.isDragging ? 0 : curveYOffset));
+    Vector3 targetPosition = cardTransform.position + verticalOffset;
+    
+    if (parentCard.isDragging)
     {
-        Vector3 verticalOffset = (Vector3.up * (parentCard.isDragging ? 0 : curveYOffset));
-        transform.position = Vector3.Lerp(transform.position, cardTransform.position + verticalOffset, followSpeed * Time.deltaTime);
+        // 拖拽时直接跟随，不使用平滑插值
+        transform.position = targetPosition;
     }
+    else
+    {
+        // 非拖拽时使用平滑插值
+        transform.position = Vector3.Lerp(transform.position, targetPosition, followSpeed * Time.deltaTime);
+    }
+}
 
     private void FollowRotation()
     {
@@ -164,27 +175,28 @@ public class CardVisual : MonoBehaviour
     }
 
     private void CardTilt()
-    {
-        savedIndex = parentCard.isDragging ? savedIndex : parentCard.ParentIndex();
-        float sine = Mathf.Sin(Time.time + savedIndex) * (parentCard.isHovering ? .2f : 1);
-        float cosine = Mathf.Cos(Time.time + savedIndex) * (parentCard.isHovering ? .2f : 1);
+{
+    savedIndex = parentCard.isDragging ? savedIndex : parentCard.ParentIndex();
+    float sine = Mathf.Sin(Time.time + savedIndex) * (parentCard.isHovering ? 2f : 1);  // 悬停时放大到2倍
+    float cosine = Mathf.Cos(Time.time + savedIndex) * (parentCard.isHovering ? 2f : 1);  // 悬停时放大到2倍
 
-        Vector3 offset = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        float tiltX = parentCard.isHovering ? ((offset.y * -1) * manualTiltAmount) : 0;
-        float tiltY = parentCard.isHovering ? ((offset.x) * manualTiltAmount) : 0;
-        float tiltZ = parentCard.isDragging ? tiltParent.eulerAngles.z : (curveRotationOffset * (curve.rotationInfluence * parentCard.SiblingAmount()));
+    // Vector3 offset = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
+    Vector3 offset = Vector3.zero;// - Camera.main.ScreenToWorldPoint(Input.mousePosition);
+    float tiltX = parentCard.isHovering ? ((offset.y * -1) * manualTiltAmount) : 0;
+    float tiltY = parentCard.isHovering ? ((offset.x) * manualTiltAmount) : 0;
+    float tiltZ = parentCard.isDragging ? tiltParent.eulerAngles.z : (curveRotationOffset * (curve.rotationInfluence * parentCard.SiblingAmount()));
 
-        float lerpX = Mathf.LerpAngle(tiltParent.eulerAngles.x, tiltX + (sine * autoTiltAmount), tiltSpeed * Time.deltaTime);
-        float lerpY = Mathf.LerpAngle(tiltParent.eulerAngles.y, tiltY + (cosine * autoTiltAmount), tiltSpeed * Time.deltaTime);
-        float lerpZ = Mathf.LerpAngle(tiltParent.eulerAngles.z, tiltZ, tiltSpeed / 2 * Time.deltaTime);
+    float lerpX = Mathf.LerpAngle(tiltParent.eulerAngles.x, tiltX + (sine * autoTiltAmount), tiltSpeed * Time.deltaTime);
+    float lerpY = Mathf.LerpAngle(tiltParent.eulerAngles.y, tiltY + (cosine * autoTiltAmount), tiltSpeed * Time.deltaTime);
+    float lerpZ = Mathf.LerpAngle(tiltParent.eulerAngles.z, tiltZ, tiltSpeed / 2 * Time.deltaTime);
 
-        tiltParent.eulerAngles = new Vector3(lerpX, lerpY, lerpZ);
-    }
+    tiltParent.eulerAngles = new Vector3(lerpX, lerpY, lerpZ);
+}
 
     private void Select(Card card, bool state)
     {
         DOTween.Kill(2, true); // 杀掉选中动画
-
+        Debug.Log("-------->select");
         if (state)
         {
             // 被选中：放大 + 抖动
@@ -207,7 +219,6 @@ public class CardVisual : MonoBehaviour
     {
         if (!swapAnimations)
             return;
-
         DOTween.Kill(2, true);
         shakeParent.DOPunchRotation((Vector3.forward * swapRotationAngle) * dir, swapTransition, swapVibrato, 1).SetId(3);
     }

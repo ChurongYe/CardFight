@@ -41,7 +41,7 @@ public class HurtUI : MonoBehaviour
         var go = Instantiate(damageText, _canvas.transform);
         go.text = damage.ToString();
         go.color = isCrit ? Color.red : Color.white;
-        go.fontSize = isCrit ? 36 : 24;
+        go.fontSize = isCrit ? 60 : 48;
         // ÖÐÐÄÆ«ÒÆ
         float xOffset = Random.Range(-0.5f, 0.5f);
         float yOffset = Random.Range(0f, 1f); 

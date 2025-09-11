@@ -34,7 +34,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0.572}
+  m_AnchoredPosition: {x: -0.79, y: 0.8}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &675518549183391881
@@ -67,8 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: hhh
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 59bcf60f19b960e438b48c4a9414f79a, type: 2}
+  m_sharedMaterial: {fileID: 731867782217927188, guid: 59bcf60f19b960e438b48c4a9414f79a, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -92,8 +92,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 49.99
+  m_fontSizeBase: 49.99
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -128,7 +128,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: -29.771244, z: 0, w: -67.37705}
+  m_margin: {x: 0, y: -35.6991, z: -115.59272, w: -58.485344}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -332,6 +332,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bloodRed: {fileID: 4855014512878303057}
   damageText: {fileID: 3590337893648428753}
+  floatUpDistance: 30
+  duration: 0.8
 --- !u!1 &5119374738947953430
 GameObject:
   m_ObjectHideFlags: 0
@@ -392,8 +394,8 @@ Canvas:
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
-  m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingLayerID: -692385477
+  m_SortingOrder: 1
   m_TargetDisplay: 0
 --- !u!114 &4619920503914939798
 MonoBehaviour:

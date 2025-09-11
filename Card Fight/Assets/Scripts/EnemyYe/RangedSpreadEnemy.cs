@@ -22,13 +22,16 @@ public class RangedSpreadEnemy : EnemyManager
         fireTimer -= Time.deltaTime;
         if (fireTimer <= 0f)
         {
-            FireSpread();
+            animator.SetTrigger("IsAttacking");
             fireTimer = fireInterval;
         }
 
         FaceTarget(currentTarget);
     }
-
+    public void Fight()
+    {
+        FireSpread();
+    }
     void FireSpread()
     {
         if (!bulletPrefab || !firePoint) return;
@@ -41,6 +44,7 @@ public class RangedSpreadEnemy : EnemyManager
         // ×óÓÒÆ«ÒÆ×Óµ¯
         FireBullet(RotateVector(dirToTarget, spreadAngle));
         FireBullet(RotateVector(dirToTarget, -spreadAngle));
+
     }
 
     void FireBullet(Vector2 direction)

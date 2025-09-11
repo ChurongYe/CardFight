@@ -20,6 +20,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
     public bool ifattacking = false;
     public bool IfneedWalk = true;
     public bool CanKnockback = true;
+    public float HealthBar = 1.5f;
 
     [Header("靠近目标参数")]
     [SerializeField] protected float stopThreshold = 0.1f;   // 靠近到这个范围就停止
@@ -61,7 +62,7 @@ public class EnemyManager : MonoBehaviour, IHurtable, IStunnable
         if (barPrefab != null)
         {
             GameObject bar = Instantiate(barPrefab, transform);
-            bar.transform.localPosition = new Vector3(0, 1.5f, 0);
+            bar.transform.localPosition = new Vector3(0, HealthBar, 0);
             hurtUI = bar.GetComponent<HurtUI>();
             hurtUI.UpdateHealthBar(currentHP, maxHP);
         }

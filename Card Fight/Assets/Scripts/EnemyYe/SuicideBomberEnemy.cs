@@ -18,7 +18,7 @@ public class SuicideBomberEnemy : EnemyManager
 
     IEnumerator ExplodeAfterDelay()
     {
-
+        animator.SetTrigger("IsAttacking");
         yield return new WaitForSeconds(explodeDelay);
 
         // ²¥·Å±¬Õ¨ÌØÐ§
