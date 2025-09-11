@@ -180,7 +180,12 @@ public class NavMeshAgent2D : MonoBehaviour
     public Vector2 destination
     {
         get { return NavMeshUtils2D.ProjectTo2D(agent.destination); }
-        set { agent.destination = NavMeshUtils2D.ProjectPointTo3D(value); }
+        set {
+            if(agent.isActiveAndEnabled)
+            {
+                agent.destination = NavMeshUtils2D.ProjectPointTo3D(value);
+            }
+        }
     }
 
     public bool hasPath
