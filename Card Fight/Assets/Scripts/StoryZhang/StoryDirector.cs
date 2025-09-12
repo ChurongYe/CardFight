@@ -142,6 +142,9 @@ public class StoryDirector : MonoBehaviour
             }
             yield return null;
         }
+
+        var colls = heroRoot.GetComponentsInChildren<Collider2D>(true);
+        foreach (var c2d in colls) c2d.enabled = true;
     }
 
     private void SetEnemyVisibleImmediate(bool visible)
@@ -177,6 +180,10 @@ public class StoryDirector : MonoBehaviour
             }
             yield return null;
         }
+
+        // 在 FadeEnemyIn 结尾加上
+        var colls = enemyRoot.GetComponentsInChildren<Collider2D>(true);
+        foreach (var c2d in colls) c2d.enabled = true;
     }
 
 
@@ -497,4 +504,7 @@ public class StoryDirector : MonoBehaviour
         yield return CoPlayOpeningSequence();
     }
     #endregion
+
+
+
 }

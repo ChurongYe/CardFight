@@ -30,17 +30,25 @@ public class DialogueUI : MonoBehaviour
         portraitImage.sprite = sprite;
     }
 
-    public IEnumerator FadeIn(float dur)
+    public IEnumerator FadeIn(float dur, bool clearTextFirst = false, bool hidePortrait = false)
     {
+        if (clearTextFirst)
+        {
+            if (textUI) textUI.text = "";
+            if (hidePortrait) SetPortrait(null);
+        }
         if (!gameObject.activeSelf) gameObject.SetActive(true);
-        yield return FadeCanvas(group, 1f, dur, true, true);
+        if (group) group.alpha = 0f; // 确保从 0 开始
+        yield return FadeCanvas(group, 1f, dur, true, true, useUnscaledTime);
     }
+
 
     public IEnumerator FadeOut(float dur)
     {
-        yield return FadeCanvas(group, 0f, dur, false, false);
-        // 不隐藏物体，保持后续可再次淡入
+        yield return FadeCanvas(group, 0f, dur, false, false, useUnscaledTime);
+        // 可选：textUI.text = "";
     }
+
 
     public IEnumerator TypeLine(string line)
     {

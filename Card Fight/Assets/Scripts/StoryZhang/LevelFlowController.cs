@@ -79,6 +79,15 @@ public class LevelFlowController : MonoBehaviour
     [Header("After Cutscene 3→4 (Black + Oldman Dialogue)")]
     public DialoguePickup.Entry[] oldmanLines34;       // 3→4 老人对白（可为空则不播）
 
+    [Header("Ending")]
+    public bool useEndingSequence = true;               // 勾上就用结局序列
+    [TextArea(2, 5)]
+    public string endingLine = "……（你的结尾台词）";
+    public float endingFadeDur = 1.5f;                  // 渐暗时长
+    public float endingTextDelay = 0.6f;                // 全黑后，多久开始出字
+    public float endingStay = 2f;                       // 出完字停留多久（若不点）
+    public bool endingWaitForClick = true;              // 是否等玩家点击再结束
+    public UnityEngine.Events.UnityEvent OnEndingFinished; // 结束后的回调（可留空）
 
 
 
@@ -105,6 +114,9 @@ public class LevelFlowController : MonoBehaviour
         currentIndex = Mathf.Clamp(startIndex, 0, maps.Length - 1);
         // 传送到当前关入口（Map1可不设）
         TeleportToEntry(Current);
+
+        // ★ 进入当前地图后，下一帧检查是否已清场（敌人数量为0等）
+        StartCoroutine(CheckClearedNextFrame());
     }
 
     void TeleportToEntry(MapZone map)
@@ -122,6 +134,20 @@ public class LevelFlowController : MonoBehaviour
 
         if (map.IsCleared())
         {
+            // ★ 如果已是最后一关，直接走结局，不再弹奖励UI
+        if (currentIndex >= maps.Length - 1)
+            {
+                PausePlayer(true);
+                if (useEndingSequence)
+                    StartCoroutine(PlayEndingSequence());
+                else
+                {
+                    PausePlayer(false);
+                    OnAllFinished?.Invoke();
+                }
+                return;
+            }
+
             // 2→3：中插
             if (!midCutscenePlayed && currentIndex == cutsceneMapIndex && HasCutscene())
             {
@@ -149,18 +175,23 @@ public class LevelFlowController : MonoBehaviour
     public void ConfirmAndGoNext()
     {
         if (Current) Current.HideRewardUI();
-
-        // 最后一关就走收尾
+        // 最后一关 → 结局（保留原逻辑）
         if (currentIndex >= maps.Length - 1)
         {
-            PausePlayer(false);
-            OnAllFinished?.Invoke();
+            PausePlayer(true);
+            if (useEndingSequence)
+                StartCoroutine(PlayEndingSequence());
+            else { PausePlayer(false); OnAllFinished?.Invoke(); }
             return;
         }
+
 
         // 进入下一关
         currentIndex++;
         TeleportToEntry(Current);
+
+        // ★ 新增：下一帧主动检查是否已清场（比如敌人本来就为 0 / 被关掉）
+        StartCoroutine(CheckClearedNextFrame());
         PausePlayer(false);
     }
 
@@ -171,6 +202,11 @@ public class LevelFlowController : MonoBehaviour
         // 如需完全暂停时间线，改用：Time.timeScale = pause ? 0f : 1f;
     }
 
+    IEnumerator CheckClearedNextFrame()
+    {
+        yield return null;              // 等待一帧，保证场景/敌人激活完成
+        TryOpenClearUI(Current);        // 若天生无敌人，会直接触发上面的结局/奖励逻辑
+    }
 
     // ===== 协程：动画淡入→稍等→对白→稍等→动画淡出→进 Map3 =====
     IEnumerator PlayMidCutsceneThenNextStep(MapZone map)
@@ -449,5 +485,50 @@ public class LevelFlowController : MonoBehaviour
         }
         SetSpritesAlpha(rs, to);
     }
+
+
+    IEnumerator PlayEndingSequence()
+    {
+        // 1) 渐暗到全黑
+        if (screenFade)
+        {
+            screenFade.gameObject.SetActive(true);
+            screenFade.alpha = 0f;
+            yield return DialogueUI.FadeCanvas(screenFade, 1f, endingFadeDur, false, false, true);
+        }
+
+        // 2) 稍等，再缓缓打出一行字
+        if (endingTextDelay > 0f) yield return new WaitForSecondsRealtime(endingTextDelay);
+
+        if (dialogueUI && !string.IsNullOrEmpty(endingLine))
+        {
+            // ★ 在生成对话框之前，强制关掉/清空头像
+            dialogueUI.SetPortrait(null);        // 清空上一段残留的头像
+                                                 // 如果你的 DialogueUI 有显示开关方法（可选）
+                                                 // dialogueUI.ShowPortrait(false);
+
+            yield return dialogueUI.FadeIn(0.2f);
+            yield return dialogueUI.TypeLine(endingLine);
+            if (endingWaitForClick) yield return dialogueUI.WaitForClick();
+            else if (endingStay > 0f) yield return new WaitForSecondsRealtime(endingStay);
+            yield return dialogueUI.FadeOut(0.2f);
+        }
+        else if (endingStay > 0f)
+        {
+            yield return new WaitForSecondsRealtime(endingStay);
+        }
+
+        // 3) 真正结束：可走回调/退游戏/切场景
+        OnEndingFinished?.Invoke();
+
+        // 默认：退出游戏（编辑器里停止播放）
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+    Application.Quit();
+#endif
+    }
+
+
 
 }
