@@ -52,7 +52,7 @@ public class HorizontalCardHolder : MonoBehaviour
         }
 
         // 特殊卡添加 4 份
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 1; i++)
         {
             cardPool.AddRange(specialCards);
         }
@@ -109,6 +109,7 @@ public class HorizontalCardHolder : MonoBehaviour
             }
 
         }
+        StartCoroutine(AutoRefreshCards());
     }
     void Shuffle<T>(List<T> list)
     {
@@ -389,6 +390,15 @@ public class HorizontalCardHolder : MonoBehaviour
             cardPool.Add(card);
             Debug.Log($"已将 {card} 放回卡池");
             Shuffle(cardPool);
+        }
+    }
+
+    private IEnumerator AutoRefreshCards()
+    {
+        while (true)
+        {
+            RefreshEmptyCards(); //调用你的方法
+            yield return new WaitForSeconds(15f); //等待5秒
         }
     }
     public void RefreshEmptyCards()//刷新卡牌

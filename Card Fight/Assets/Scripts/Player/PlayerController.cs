@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static PlayerController;
 using static Unity.Collections.AllocatorManager;
@@ -99,6 +100,9 @@ public class PlayerController : MonoBehaviour
     private GameObject bar;    // 盾牌量预制体
     private HurtUI hurtUI;
     private int currentMaxShield;
+
+    public Image blackScreen;   // 拖拽UI Image进来
+    public float fadeDuration = 1f; // 渐变时间
 
     void Start()
     {
@@ -781,10 +785,35 @@ public class PlayerController : MonoBehaviour
     }
     IEnumerator Die()
     {
-        //死亡动画
+        // 播放死亡动画
+        playerAnimator.SetTrigger("Die");
+
+        // 等待动画时间
         yield return new WaitForSeconds(1f);
+
         Debug.Log("Player Died");
+
+        // 黑屏渐变
+        yield return StartCoroutine(FadeToBlack());
+
+        // 重新加载当前场景
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
+
+    private IEnumerator FadeToBlack()
+    {
+        float elapsed = 0f;
+        Color c = blackScreen.color;
+
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            c.a = Mathf.Clamp01(elapsed / fadeDuration);
+            blackScreen.color = c;
+            yield return null;
+        }
+    }
+
     ///////////////////////////Card///////////////////////////////////////////////////////
     void TrySummonFireballs()
     {

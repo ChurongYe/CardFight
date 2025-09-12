@@ -358,7 +358,7 @@ MonoBehaviour:
     specialType: 0
     sprite: {fileID: 0}
   cardImage: {fileID: 7697484841366769644}
-  cardBackSprite: {fileID: 21300000, guid: a645499deac5944f593fdcd569acc1e7, type: 3}
+  cardBackSprite: {fileID: 21300000, guid: d3a530174bcb96f4795365f68b1cdf02, type: 3}
   visualShadow: {fileID: 9157190824811683565}
   shakeParent: {fileID: 3449025543118524474}
   tiltParent: {fileID: 5862976466474931636}
