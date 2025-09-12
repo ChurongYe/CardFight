@@ -42581,7 +42581,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mapName: Map
-  entryPoint: {fileID: 0}
+  entryPoint: {fileID: 2112147067}
   exitPortal: {fileID: 0}
   enemies:
   - {fileID: 2129509807}
