@@ -64,6 +64,24 @@ public class LevelFlowController : MonoBehaviour
 
 
 
+    // ===== Mid Cutscene 3→4 =====
+    [Header("Mid Cutscene 3→4")]
+    public int cutsceneMapIndex34 = 2;                 // Map3（0-based）
+    public DialoguePickup.Entry[] cutscene34;          // 3→4 将军对白（同结构）
+    public CanvasGroup cutsceneGroup34;                // 若过场是 UI 画面
+    public SpriteRenderer[] cutsceneSprites34;         // 若过场是 2D 序列帧
+    public Animator cutsceneAnimator34;                // 可选：控制循环
+    public string cutsceneTrigger34 = "Play";          // 可选触发参数
+    public bool skipRewardAndGoNext34 = true;          // 播完直接进 Map4
+    bool midCutscenePlayed34 = false;                  // 防重复
+
+    // 黑屏+老人对白（如与 2→3 不同，可单独配置；相同就留空=沿用旧组）
+    [Header("After Cutscene 3→4 (Black + Oldman Dialogue)")]
+    public DialoguePickup.Entry[] oldmanLines34;       // 3→4 老人对白（可为空则不播）
+
+
+
+
 
     int currentIndex = -1;
     MapZone Current => (currentIndex >= 0 && currentIndex < maps.Length) ? maps[currentIndex] : null;
@@ -104,12 +122,20 @@ public class LevelFlowController : MonoBehaviour
 
         if (map.IsCleared())
         {
-            // Map2：先播中插剧情
+            // 2→3：中插
             if (!midCutscenePlayed && currentIndex == cutsceneMapIndex && HasCutscene())
             {
                 PausePlayer(true);
                 StartCoroutine(PlayMidCutsceneThenNextStep(map));
-                return; // 先不弹奖励
+                return;
+            }
+
+            // 3→4：中插
+            if (!midCutscenePlayed34 && currentIndex == cutsceneMapIndex34 && HasCutscene34())
+            {
+                PausePlayer(true);
+                StartCoroutine(PlayMidCutsceneThenNextStep34(map));
+                return;
             }
 
             // 其它情况：直接弹奖励
@@ -117,6 +143,7 @@ public class LevelFlowController : MonoBehaviour
             map.ShowRewardUI(uiAudioSource);
         }
     }
+
 
 
     public void ConfirmAndGoNext()
@@ -271,6 +298,118 @@ public class LevelFlowController : MonoBehaviour
         }
     }
 
+
+    IEnumerator PlayMidCutsceneThenNextStep34(MapZone map)
+    {
+        midCutscenePlayed34 = true;
+
+        // (A) 3→4 过场画面淡入 + 循环播放
+        if (cutsceneGroup34)
+        {
+            cutsceneGroup34.gameObject.SetActive(true);
+            cutsceneGroup34.alpha = 0f;
+            yield return DialogueUI.FadeCanvas(cutsceneGroup34, 1f, animFadeIn, false, false, true);
+        }
+        else if (cutsceneSprites34 != null && cutsceneSprites34.Length > 0)
+        {
+            SetSpritesAlpha(cutsceneSprites34, 0f);
+            SetSpritesActive(cutsceneSprites34, true);
+            yield return FadeSprites(cutsceneSprites34, 1f, animFadeIn);
+        }
+        if (cutsceneAnimator34)
+        {
+            cutsceneAnimator34.ResetTrigger(cutsceneTrigger34);
+            if (!string.IsNullOrEmpty(cutsceneTrigger34)) cutsceneAnimator34.SetTrigger(cutsceneTrigger34);
+            // 动画片段请在 Animator/Clip 勾选 Loop
+        }
+
+        // (B) 稍等一下再出对白
+        if (preDialogueDelay > 0f) yield return new WaitForSecondsRealtime(preDialogueDelay);
+
+        // (C) 将军对白（优先 overridePortrait）
+        if (dialogueUI && cutscene34 != null && cutscene34.Length > 0)
+        {
+            yield return dialogueUI.FadeIn(0.2f);
+
+            foreach (var e in cutscene34)
+            {
+                Sprite toUse = e.overridePortrait != null
+                    ? e.overridePortrait
+                    : (generalPortrait ? generalPortrait.sprite : null);
+                dialogueUI.SetPortrait(toUse);
+
+                if (e.preDelay > 0f) yield return new WaitForSecondsRealtime(e.preDelay);
+                yield return dialogueUI.TypeLine(e.text);
+                if (e.waitForClick) yield return dialogueUI.WaitForClick();
+                if (e.postDelay > 0f) yield return new WaitForSecondsRealtime(e.postDelay);
+            }
+            yield return dialogueUI.FadeOut(0.2f);
+        }
+
+        // (D) 对话后稍等 → 先把“黑幕”铺在底层 → 再淡出 3→4 动画（露出黑幕）
+        if (postDialogueDelay > 0f) yield return new WaitForSecondsRealtime(postDialogueDelay);
+
+        if (screenFade)
+        {
+            screenFade.gameObject.SetActive(true);
+            screenFade.alpha = 0f;
+            float blackUnderlayDelay = 0.10f;  // 可调：黑幕相对动画“晚一点出现”
+            if (blackUnderlayDelay > 0f) yield return new WaitForSecondsRealtime(blackUnderlayDelay);
+            yield return DialogueUI.FadeCanvas(screenFade, 1f, toBlackDur, false, false, true);
+        }
+
+        if (cutsceneGroup34)
+        {
+            yield return DialogueUI.FadeCanvas(cutsceneGroup34, 0f, animFadeOut, false, false, true);
+            cutsceneGroup34.gameObject.SetActive(false);
+        }
+        else if (cutsceneSprites34 != null && cutsceneSprites34.Length > 0)
+        {
+            yield return FadeSprites(cutsceneSprites34, 0f, animFadeOut);
+            SetSpritesActive(cutsceneSprites34, false);
+        }
+
+        // 黑屏后稍等再出“老人对白”
+        if (gapBeforeOldman > 0f) yield return new WaitForSecondsRealtime(gapBeforeOldman);
+
+        // (E) 老人对白（优先 overridePortrait；为空则不播）
+        if (dialogueUI && oldmanLines34 != null && oldmanLines34.Length > 0)
+        {
+            yield return dialogueUI.FadeIn(0.2f);
+
+            foreach (var e in oldmanLines34)
+            {
+                Sprite toUse = e.overridePortrait != null
+                    ? e.overridePortrait
+                    : (oldmanPortrait ? oldmanPortrait.sprite : null);
+                dialogueUI.SetPortrait(toUse);
+
+                if (e.preDelay > 0f) yield return new WaitForSecondsRealtime(e.preDelay);
+                yield return dialogueUI.TypeLine(e.text);
+                if (e.waitForClick) yield return dialogueUI.WaitForClick();
+                if (e.postDelay > 0f) yield return new WaitForSecondsRealtime(e.postDelay);
+            }
+            yield return dialogueUI.FadeOut(0.2f);
+        }
+
+        // (F) 仍在黑屏时进入 Map4 → 再从黑淡入
+        if (skipRewardAndGoNext34)
+        {
+            ConfirmAndGoNext();
+            if (screenFade)
+                yield return DialogueUI.FadeCanvas(screenFade, 0f, fromBlackDur, false, false, true);
+            else
+                PausePlayer(false);
+        }
+        else
+        {
+            if (screenFade)
+                yield return DialogueUI.FadeCanvas(screenFade, 0f, fromBlackDur, false, false, true);
+            map.ShowRewardUI(uiAudioSource);
+        }
+    }
+
+
     // ===== 工具函数 =====
     bool HasCutscene()
     {
@@ -279,6 +418,15 @@ public class LevelFlowController : MonoBehaviour
             || (cutsceneSprites != null && cutsceneSprites.Length > 0)
             || (dialogueUI != null && cutscene != null && cutscene.Length > 0);
     }
+
+    bool HasCutscene34()
+    {
+        return (cutsceneAnimator34 != null)
+            || (cutsceneGroup34 != null)
+            || (cutsceneSprites34 != null && cutsceneSprites34.Length > 0)
+            || (dialogueUI != null && cutscene34 != null && cutscene34.Length > 0);
+    }
+
 
     void SetSpritesActive(SpriteRenderer[] rs, bool active)
     {
