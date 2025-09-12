@@ -195,9 +195,25 @@ public class LevelFlowController : MonoBehaviour
             yield return dialogueUI.FadeOut(0.2f);
         }
 
-        // (D) 对话后稍等，过场淡出
+        // (D) 对话后稍等
         if (postDialogueDelay > 0f) yield return new WaitForSecondsRealtime(postDialogueDelay);
 
+        /* —— 先把“黑幕”作为底层铺上来（稍晚于动画出现，但早于动画淡出） —— */
+        if (screenFade)
+        {
+            screenFade.gameObject.SetActive(true);
+            screenFade.alpha = 0f;
+
+            // 可微调这个“底层黑幕出现”延迟，让它比动画出现稍晚一点
+            // 例如 0.10f；如不需要额外延时设为 0 即可
+            float blackUnderlayDelay = 0.10f;
+            if (blackUnderlayDelay > 0f) yield return new WaitForSecondsRealtime(blackUnderlayDelay);
+
+            // 让黑幕先淡到 1（但因为在下层，所以此时还被动画盖住）
+            yield return DialogueUI.FadeCanvas(screenFade, 1f, toBlackDur, false, false, true);
+        }
+
+        /* —— 再把 2-3 动画本体淡出，此时“露出来”的就是黑幕 —— */
         if (cutsceneGroup)
         {
             yield return DialogueUI.FadeCanvas(cutsceneGroup, 0f, animFadeOut, false, false, true);
@@ -209,14 +225,7 @@ public class LevelFlowController : MonoBehaviour
             SetSpritesActive(cutsceneSprites, false);
         }
 
-        // === 新增：转入纯黑屏 ===
-        if (screenFade)
-        {
-            // 确保黑幕在下层：让对白能盖在上面显示
-            screenFade.gameObject.SetActive(true);
-            screenFade.alpha = 0f;
-            yield return DialogueUI.FadeCanvas(screenFade, 1f, toBlackDur, false, false, true);
-        }
+        
 
         // 黑屏后稍等一下再出“老人对白”
         if (gapBeforeOldman > 0f) yield return new WaitForSecondsRealtime(gapBeforeOldman);
