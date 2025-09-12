@@ -22,10 +22,18 @@ public class CardUpgradeUI : MonoBehaviour
     /// 打开并执行一次：随机从候选池里为三个槽位选技能（允许重复），播放特效，
     /// 然后在这三个结果中随机选一个作为“被触发的技能”，触发其 onClick 并 level++。
     /// </summary>
-    //public void click()
-    //{
-    //    Show(Suit.Red);
-    //}
+    public void click()
+    {
+        Show(Suit.Red);
+    }
+    public void click2()
+    {
+        Show(Suit.Blue);
+    }
+    public void click3()
+    {
+        Show(Suit.Green);
+    }
     public void Show(Suit suit)
     {
         // 取出该花色所有技能条目

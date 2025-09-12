@@ -52,7 +52,7 @@ public class HorizontalCardHolder : MonoBehaviour
         }
 
         // 特殊卡添加 4 份
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 1; i++)
         {
             cardPool.AddRange(specialCards);
         }
