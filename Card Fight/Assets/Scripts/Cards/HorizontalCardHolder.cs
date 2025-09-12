@@ -5,8 +5,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using DG.Tweening;
 using System.Linq;
-using Unity.VisualScripting.Antlr3.Runtime.Misc;
-using UnityEngine.WSA;
+
 using Core;
 
 public class HorizontalCardHolder : MonoBehaviour
