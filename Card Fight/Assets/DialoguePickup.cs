@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class DialoguePickup : MonoBehaviour
 {
     // —— 说话人/条目定义 ——
-    public enum Speaker { None, Hero, Oldman }
+    public enum Speaker { None, Hero, Oldman, General }
 
     [System.Serializable]
     public class Entry
@@ -26,6 +26,8 @@ public class DialoguePickup : MonoBehaviour
     [Header("Portraits (Image，内部会取 .sprite)")]
     [SerializeField] private Image oldmanPortrait; // 老者头像（Image）
     [SerializeField] private Image heroPortrait;   // 主角头像（Image）
+    [SerializeField] private Image generalPortrait;   // 将军头像（Image）
+
 
     [Header("Scripted Lines (推荐)")]
     public List<Entry> entries = new List<Entry>();
@@ -76,15 +78,16 @@ public class DialoguePickup : MonoBehaviour
                 // —— 新：逐句带头像 ——
                 foreach (var e in entries)
                 {
-                    // 1) 选择头像
+                    // 头像选择（RunSequence 的 foreach 中）
                     Sprite toUse = e.overridePortrait;
                     if (toUse == null)
                     {
                         if (e.speaker == Speaker.Hero) toUse = heroPortrait ? heroPortrait.sprite : null;
                         else if (e.speaker == Speaker.Oldman) toUse = oldmanPortrait ? oldmanPortrait.sprite : null;
-                        else toUse = null; // None
+                        else if (e.speaker == Speaker.General) toUse = generalPortrait ? generalPortrait.sprite : null; // + 将军
+                        else toUse = null;
                     }
-                    dialogueUI.SetPortrait(toUse); // 让 DialogueUI 切头像（或清空）
+                    dialogueUI.SetPortrait(toUse);
 
                     // 2) 节奏控制
                     if (e.preDelay > 0f) yield return new WaitForSecondsRealtime(e.preDelay);
