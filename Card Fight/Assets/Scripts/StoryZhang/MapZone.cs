@@ -27,17 +27,8 @@ public class MapZone : MonoBehaviour
 
     bool clearedOnce = false;
 
-    private LevelFlowController controllerRef;   // 记录关卡总控
-
-    void NotifyControllerCleared()
-    {
-        if (controllerRef) controllerRef.TryOpenClearUI(this); // 通知总控“我清场了”
-    }
-
     public void Setup(LevelFlowController controller)
     {
-        controllerRef = controller;
-
         if (exitPortal) exitPortal.Init(this, controller);
         if (rewardCanvas) rewardCanvas.SetActive(false);
 
@@ -46,18 +37,7 @@ public class MapZone : MonoBehaviour
             confirmButton.onClick.RemoveAllListeners();
             confirmButton.onClick.AddListener(controller.ConfirmAndGoNext);
         }
-
-        // 第一次清场时，自动回调总控
-        OnCleared.RemoveListener(NotifyControllerCleared);
-        OnCleared.AddListener(NotifyControllerCleared);
     }
-
-    void Update()
-    {
-        // 只在还没清场过的阶段做检查；第一次全空时会触发 OnCleared
-        if (!clearedOnce) IsCleared();
-    }
-
 
     public bool IsCleared()
     {
