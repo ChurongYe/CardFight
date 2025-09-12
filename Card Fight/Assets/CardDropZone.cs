@@ -4,6 +4,9 @@ using UnityEngine.EventSystems;
 
 public class CardDropZone : MonoBehaviour, IDropHandler
 {
+    [Header("出牌特效 (Prefab)")]
+    public GameObject playEffectPrefab; // 在 Inspector 里拖一个粒子/特效 Prefab
+    public Transform effectSpawnPoint;  // 出牌位置 (可以是 DropZone 自己)
     public void OnDrop(PointerEventData eventData)
     {
         GameObject droppedObj = eventData.pointerDrag;
@@ -18,6 +21,13 @@ public class CardDropZone : MonoBehaviour, IDropHandler
             {
                 // 合法 → 直接调用 TryPlaySelectedCards（包含：加成、出牌、清空、补位）
                 holder.TryPlaySelectedCards();
+                // 播放出牌特效
+                if (playEffectPrefab != null)
+                {
+                    var spawnPos = effectSpawnPoint != null ? effectSpawnPoint.position : transform.position;
+                    var fx = Instantiate(playEffectPrefab, spawnPos, Quaternion.identity);
+                    Destroy(fx, 2f); // 2 秒后销毁（可根据特效时长调整）
+                }
             }
             else
             {
