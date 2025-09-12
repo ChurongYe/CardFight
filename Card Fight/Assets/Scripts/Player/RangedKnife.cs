@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-
 public class RangedKnife : MonoBehaviour
 {
     //    private float speedFactor = 1.0f;
