@@ -1,96 +1,96 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine.Events;
 
-/// <summary>
-/// 三个固定槽位，每次根据当前花色的候选池（1~3 或 1~4）独立随机抽取填充。
-/// 抽取时允许重复，4号一旦解锁与其他3个按钮拥有相同出现概率。
-/// </summary>
 public class CardUpgradeUI : MonoBehaviour
 {
-    [System.Serializable]
-    public class Slot
+
+    [Header("Effect 構件（拖 Prefab）")]
+    public GameObject redEffectPrefab;
+    public GameObject blueEffectPrefab;
+    public GameObject greenEffectPrefab;
+
+    [Header("特效播放位置（3 个槽位）")]
+    public Transform[] effectSlots; // 在场景放 3 个空物体作为特效位置
+
+    [Header("所有技能（在 Inspector 配置每个花色的 1~4）")]
+    public List<SkillButton> skillButtons = new List<SkillButton>();
+
+    /// <summary>
+    /// 打开并执行一次：随机从候选池里为三个槽位选技能（允许重复），播放特效，
+    /// 然后在这三个结果中随机选一个作为“被触发的技能”，触发其 onClick 并 level++。
+    /// </summary>
+    //public void click()
+    //{
+    //    Show(Suit.Red);
+    //}
+    public void Show(Suit suit)
     {
-        public Button button;
-        public Text label;
-    }
-
-    [Header("固定三个槽位（Inspector 里拖 0..2 三个 Slot）")]
-    public Slot[] slots = new Slot[3];
-
-    // 外部设置的测试花色
-    [Header("测试用花色")]
-    public Suit testSuit = Suit.Red;
-
-    private readonly Dictionary<Suit, int[]> levels = new Dictionary<Suit, int[]>
-    {
-        { Suit.Red,   new int[4] },
-        { Suit.Blue,  new int[4] },
-        { Suit.Green, new int[4] },
-    };
-
-    private Suit currentSuit;
-    private int[] curLevels;
-    private int[] slotToIndex = new int[3];
-
-    void Start()
-    {
-        // 绑定按钮点击
-        for (int i = 0; i < slots.Length; i++)
+        // 取出该花色所有技能条目
+        var suitButtons = skillButtons.Where(sb => sb.suit == suit).ToList();
+        if (suitButtons.Count == 0)
         {
-            int si = i;
-            if (slots[si].button != null)
+            Debug.LogWarning($"CardUpgradeUI: 没有找到 {suit} 花色的技能配置。");
+            return;
+        }
+
+        // 候选池规则：1~3 总是候选；当 1、2、3 的 level 都 >= 1 时，将 4 号加入候选池（如果存在）
+        var basePool = suitButtons.Where(sb => sb.buttonIndex >= 1 && sb.buttonIndex <= 3).ToList();
+        bool unlocked4 = basePool.All(sb => sb.level >= 1);
+        if (unlocked4)
+        {
+            var b4 = suitButtons.FirstOrDefault(sb => sb.buttonIndex == 4);
+            if (b4 != null) basePool.Add(b4);
+        }
+
+        if (basePool.Count == 0)
+        {
+            Debug.LogWarning("CardUpgradeUI: 候选池为空（可能未正确配置 1~3 的技能）。");
+            return;
+        }
+
+        // 为每个槽位独立随机抽取一个技能（有放回，允许重复）
+        var chosenForSlots = new List<SkillButton>();
+        for (int i = 0; i < Mathf.Min(effectSlots.Length, 3); i++)
+        {
+            var pick = basePool[Random.Range(0, basePool.Count)];
+            chosenForSlots.Add(pick);
+
+            // 播放对应花色的特效在槽位位置
+            var fxPrefab = GetEffectPrefab(suit);
+            if (fxPrefab != null && effectSlots[i] != null)
             {
-                slots[si].button.onClick.RemoveAllListeners();
-                slots[si].button.onClick.AddListener(() => OnSlotClick(si));
+                var fx = Instantiate(fxPrefab, effectSlots[i].position, Quaternion.identity);
+                Destroy(fx, 3f); // 播放后销毁（按特效长度调整）
             }
         }
 
-        // **测试用：游戏开始就显示 UI**
-        Show(testSuit);
+        // 在这三个选项中再随机挑一个真正执行（模拟“自动点击”）
+        var selected = chosenForSlots[Random.Range(0, chosenForSlots.Count)];
+        selected.level++;
+        Debug.Log($"[自动触发] {selected.displayName} 被触发，等级 -> {selected.level}");
+
+        // 触发绑定的方法（例如 AttackFire）
+        selected.onClick?.Invoke();
     }
 
-    public void Show(Suit suit)
-    {
-        currentSuit = suit;
-        curLevels = levels[suit];
-
-        List<int> pool = new List<int> { 0, 1, 2 };
-        bool unlocked4 = curLevels[0] >= 1 && curLevels[1] >= 1 && curLevels[2] >= 1;
-        if (unlocked4) pool.Add(3);
-
-        for (int i = 0; i < slots.Length; i++)
-        {
-            int pick = pool[Random.Range(0, pool.Count)];
-            slotToIndex[i] = pick;
-
-            if (slots[i].button != null) slots[i].button.gameObject.SetActive(true);
-            if (slots[i].label != null) slots[i].label.text = $"{GetSuitName(suit)}{pick + 1}  {curLevels[pick]}级";
-        }
-
-        gameObject.SetActive(true);
-    }
-
-    private void OnSlotClick(int slot)
-    {
-        int idx = slotToIndex[slot];
-        curLevels[idx]++;
-        Debug.Log($"{currentSuit} {idx + 1} 被点，等级提升到 {curLevels[idx]}级");
-
-        gameObject.SetActive(false);
-    }
-
-    private string GetSuitName(Suit suit)
+    private GameObject GetEffectPrefab(Suit suit)
     {
         switch (suit)
         {
-            case Suit.Red: return "红";
-            case Suit.Blue: return "蓝";
-            case Suit.Green: return "绿";
+            case Suit.Red: return redEffectPrefab;
+            case Suit.Blue: return blueEffectPrefab;
+            case Suit.Green: return greenEffectPrefab;
         }
-        return "";
+        return null;
     }
 
-    public int GetLevel(Suit s, int index) => levels[s][index];
-    public void ResetLevels(Suit s) => levels[s] = new int[4];
+    // 辅助：外部能查询某个花色/索引的等级
+    public int GetLevel(Suit s, int index1Based)
+    {
+        var btn = skillButtons.FirstOrDefault(x => x.suit == s && x.buttonIndex == index1Based);
+        return btn != null ? btn.level : 0;
+    }
 }
