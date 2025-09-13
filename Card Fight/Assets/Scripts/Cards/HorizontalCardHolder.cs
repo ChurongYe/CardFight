@@ -535,7 +535,7 @@ public class HorizontalCardHolder : MonoBehaviour
         if (cardDatas.Count == 1 && !cardDatas[0].IsSpecial)
             return 1;
 
-        // ⚠️ 修改这里：允许包含特殊卡，但要有至少一张普通卡
+        // 允许有特殊卡，但必须至少有一张普通卡
         var normalCards = cardDatas.Where(c => !c.IsSpecial).ToList();
         if (normalCards.Count == 0)
             return 0; // 全是特殊卡不行
@@ -545,15 +545,29 @@ public class HorizontalCardHolder : MonoBehaviour
         if (!normalCards.All(c => c.suit == firstSuit))
             return 0;
 
-        // 检查数字是否连续（只对普通卡）
+        // 提取数字
         var numbers = normalCards.Select(c => c.number).OrderBy(n => n).ToList();
+
+        // 两种情况合法：
+        bool isConsecutive = true;
         for (int i = 1; i < numbers.Count; i++)
         {
             if (numbers[i] != numbers[i - 1] + 1)
-                return 0;
+            {
+                isConsecutive = false;
+                break;
+            }
         }
 
-        // 返回有效张数（普通卡 + 特殊卡）
+        bool isAllSame = numbers.All(n => n == numbers[0]);
+
+        if (!(isConsecutive || isAllSame))
+            return 0;
+
+        // 至少三张才能算组合（避免两张 3,3 就算合法）
+        if (normalCards.Count < 3 && !isAllSame)
+            return 0;
+
         return cardDatas.Count;
     }
     public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
