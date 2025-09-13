@@ -526,36 +526,34 @@ public class HorizontalCardHolder : MonoBehaviour
     }
     public int ValidateCombination(List<Card> cards)
     {
-        // 如果没有卡牌或任意卡牌为空，不能出牌
         if (cards == null || cards.Count == 0 || cards.Any(c => c.cardVisual == null || c.cardVisual.IsEmpty()))
             return 0;
 
         var cardDatas = cards.Select(c => c.cardVisual.data).ToList();
 
-        // 特殊情况：只选中一张普通卡，允许出牌
+        // 如果只有一张普通卡，允许出牌
         if (cardDatas.Count == 1 && !cardDatas[0].IsSpecial)
             return 1;
 
-        // 所有卡都必须是普通卡
-        if (cardDatas.Any(c => c.IsSpecial))
+        // ⚠️ 修改这里：允许包含特殊卡，但要有至少一张普通卡
+        var normalCards = cardDatas.Where(c => !c.IsSpecial).ToList();
+        if (normalCards.Count == 0)
+            return 0; // 全是特殊卡不行
+
+        // 检查普通卡是否同花色
+        var firstSuit = normalCards[0].suit;
+        if (!normalCards.All(c => c.suit == firstSuit))
             return 0;
 
-        // 检查花色是否一致
-        var firstSuit = cardDatas[0].suit;
-        if (!cardDatas.All(c => c.suit == firstSuit))
-            return 0;
-
-        // 提取并排序数字
-        var numbers = cardDatas.Select(c => c.number).OrderBy(n => n).ToList();
-
-        // 检查数字是否连续
+        // 检查数字是否连续（只对普通卡）
+        var numbers = normalCards.Select(c => c.number).OrderBy(n => n).ToList();
         for (int i = 1; i < numbers.Count; i++)
         {
             if (numbers[i] != numbers[i - 1] + 1)
                 return 0;
         }
 
-        // 满足连续、同花色、3张以上
+        // 返回有效张数（普通卡 + 特殊卡）
         return cardDatas.Count;
     }
     public void AddSpecialCardToPool(CardData specialCard)//加特殊卡
