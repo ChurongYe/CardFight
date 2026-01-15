@@ -1,7 +1,7 @@
-﻿using System.Collections;
+﻿using Core;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.WSA;
 
 public class RangedKnife : MonoBehaviour
 {
@@ -148,6 +148,14 @@ public class RangedKnife : MonoBehaviour
     private bool launched = false;
     private bool isDead = false;
 
+    [Header("Lighting")]
+    public GameObject LightingPrefab;
+    private Animator animator;
+
+    void Awake()
+    {
+        animator = GetComponent<Animator>();
+    }
     public void SpeedFactor()
     {
         speed = baseSpeed * speedFactor;
@@ -199,13 +207,22 @@ public class RangedKnife : MonoBehaviour
             launched = false; // 停止飞行
             isDead = true;
             GetComponent<Collider2D>().enabled = false;
-            StartCoroutine(Stop());
+            // 触发击中动画
+            if (animator != null)
+                animator.SetTrigger("Hit");
+
+            if (CardValue.AddLighting && LightingPrefab != null)
+            {
+                GameObject lightZone = Instantiate(LightingPrefab, transform.position, Quaternion.identity);
+            }
+
+            StartCoroutine(StopAfterAnimation());
         }
     }
-    IEnumerator Stop()
+    IEnumerator StopAfterAnimation()
     {
-        //动画
-        yield return new WaitForSeconds(0.5f);
+        float animLength = animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(animLength);
         Destroy(gameObject);
     }
 }

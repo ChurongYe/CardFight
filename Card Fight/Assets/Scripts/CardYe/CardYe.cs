@@ -30,16 +30,16 @@ public class CardYe : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.X))
-        {
-            currentSlot = currentSlot == AttackSlot.Melee ? AttackSlot.Ranged : AttackSlot.Melee;
-            Debug.Log("ÇÐ»»µ½¹¥»÷²ÛÎ»£º" + currentSlot);
-        }
+        //if (Input.GetKeyDown(KeyCode.X))
+        //{
+        //    currentSlot = currentSlot == AttackSlot.Melee ? AttackSlot.Ranged : AttackSlot.Melee;
+        //    Debug.Log("ÇÐ»»µ½¹¥»÷²ÛÎ»£º" + currentSlot);
+        //}
 
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            UseAttack();
-        }
+        //if (Input.GetKeyDown(KeyCode.Space))
+        //{
+        //    UseAttack();
+        //}
     }
     public void UseAttack()
     {
@@ -125,19 +125,13 @@ public class CardYe : MonoBehaviour
             activeSummons.Remove(unit);
         }
     }
-
+    public float buffMultiplier;
     public void MultiplyAllSummons(float multiplier)
     {
         foreach (var unit in activeSummons)
         {
             unit.MultiplyStats(buffMultiplier);
         }
-    }
-    private float buffMultiplier;
-    public float BuffMultiplier
-    {
-        get { return buffMultiplier; }
-        set { buffMultiplier = value; }
     }
     #endregion
 }

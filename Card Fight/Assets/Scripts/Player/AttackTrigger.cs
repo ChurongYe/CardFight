@@ -13,7 +13,7 @@ public class AttackTrigger : MonoBehaviour
             PlayerController player = collision.GetComponent<PlayerController>();
             if (player != null && !player.IsInvincible())
             {
-                player.TakeDamage(damage);
+                player.TakeDamage(damage, transform.parent.gameObject);
             }
         }
         else if (collision.CompareTag("Summon"))
